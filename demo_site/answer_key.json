@@ -1,0 +1,950 @@
+{
+ "site": "KVTU practice portal",
+ "build": "2026.11",
+ "bugs": [
+  {
+   "id": "B01",
+   "title": "USN with 11 characters is accepted at sign-in",
+   "severity": "High",
+   "area": "Sign-in",
+   "requirement": "FR-EDD-01",
+   "where": "#/login",
+   "steps": "Enter USN 1KV21CS0011 (11 characters) with the DOB of 1KV21CS001 and request an OTP.",
+   "expected": "Rejected: a USN is exactly 10 characters.",
+   "actual_in_practice_build": "An OTP is sent; the portal matches the first 10 characters.",
+   "subtle": true,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  },
+  {
+   "id": "B02",
+   "title": "OTP stays valid for 15 minutes",
+   "severity": "Medium",
+   "area": "Sign-in",
+   "requirement": "FR-EDD-01",
+   "where": "#/otp",
+   "steps": "Request an OTP, then use the QA panel clock to move forward 12 minutes and enter it.",
+   "expected": "OTP expired after 10 minutes.",
+   "actual_in_practice_build": "OTP still accepted up to 15 minutes.",
+   "subtle": true,
+   "check": {
+    "practice": 15,
+    "reference": 10
+   }
+  },
+  {
+   "id": "B03",
+   "title": "The same OTP can be used twice",
+   "severity": "High",
+   "area": "Sign-in",
+   "requirement": "FR-EDD-01, NFR-03",
+   "where": "#/otp",
+   "steps": "Sign in with an OTP, sign out, go back to #/otp and enter the same code again.",
+   "expected": "A used OTP is rejected.",
+   "actual_in_practice_build": "The used OTP works again.",
+   "subtle": true,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  },
+  {
+   "id": "B04",
+   "title": "Date of birth is not checked at sign-in",
+   "severity": "Critical",
+   "area": "Sign-in",
+   "requirement": "BRD Step 1.1, FR-EDD-01",
+   "where": "#/login",
+   "steps": "Enter USN 1KV21CS001 with DOB 1999-01-01.",
+   "expected": "\"Details do not match our records.\"",
+   "actual_in_practice_build": "An OTP is sent and the user can sign in.",
+   "subtle": false,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  },
+  {
+   "id": "B05",
+   "title": "Signing out does not end the session",
+   "severity": "High",
+   "area": "Sign-in",
+   "requirement": "NFR-03",
+   "where": "Sign out (any page)",
+   "steps": "Sign in as a student, click Sign out, then open #/student.",
+   "expected": "You are asked to sign in again.",
+   "actual_in_practice_build": "The dashboard opens; the session was never cleared.",
+   "subtle": true,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  },
+  {
+   "id": "B06",
+   "title": "More than 10 copies can be added",
+   "severity": "Medium",
+   "area": "Cart",
+   "requirement": "FR-EDD-02",
+   "where": "#/apply",
+   "steps": "Add a document with Copies = 11.",
+   "expected": "Rejected: 1 to 10 copies.",
+   "actual_in_practice_build": "11 copies are added to the cart.",
+   "subtle": false,
+   "check": {
+    "practice": 1,
+    "reference": 0
+   }
+  },
+  {
+   "id": "B07",
+   "title": "Zero copies can be added",
+   "severity": "Medium",
+   "area": "Cart",
+   "requirement": "FR-EDD-02",
+   "where": "#/apply",
+   "steps": "Add a document with Copies = 0.",
+   "expected": "Rejected: 1 to 10 copies.",
+   "actual_in_practice_build": "A line with 0 copies is added.",
+   "subtle": false,
+   "check": {
+    "practice": 1,
+    "reference": 0
+   }
+  },
+  {
+   "id": "B08",
+   "title": "Removing a cart line does not refresh the total",
+   "severity": "High",
+   "area": "Cart",
+   "requirement": "FR-EDD-04",
+   "where": "#/apply",
+   "steps": "Add CMC and Migration, then remove Migration. Compare the Total fee with the table.",
+   "expected": "The total drops to the CMC fee only.",
+   "actual_in_practice_build": "The total still includes the removed item until the page is reloaded.",
+   "subtle": true,
+   "check": {
+    "practice": "₹1,100.00",
+    "reference": "₹500.00"
+   }
+  },
+  {
+   "id": "B09",
+   "title": "PDC allowed for a student who has not cleared all exams",
+   "severity": "Critical",
+   "area": "Eligibility",
+   "requirement": "BR-EDD-01",
+   "where": "#/apply",
+   "steps": "Sign in as 1KV20EC045 (not cleared) and add a Provisional Degree Certificate.",
+   "expected": "Blocked: PDC needs all exams cleared.",
+   "actual_in_practice_build": "PDC is added and can be paid for.",
+   "subtle": false,
+   "check": {
+    "practice": 1,
+    "reference": 0
+   }
+  },
+  {
+   "id": "B10",
+   "title": "Pre-2005 USN not sent to manual verification",
+   "severity": "Medium",
+   "area": "Eligibility",
+   "requirement": "BR-EDD-01",
+   "where": "#/apply",
+   "steps": "Sign in as 1KV04CV001 (2004 admission) and start an application.",
+   "expected": "A notice says the record will be verified manually; the application is flagged.",
+   "actual_in_practice_build": "No notice, no flag; it is treated like any other student.",
+   "subtle": true,
+   "check": {
+    "practice": false,
+    "reference": true
+   }
+  },
+  {
+   "id": "B11",
+   "title": "Files up to 5.5 MB accepted (limit is 5 MB)",
+   "severity": "Medium",
+   "area": "Upload",
+   "requirement": "FR-EDD-03",
+   "where": "#/apply",
+   "steps": "Upload 5.3MB.pdf from QA panel > Test files.",
+   "expected": "Rejected: over 5 MB.",
+   "actual_in_practice_build": "Accepted.",
+   "subtle": true,
+   "check": {
+    "practice": 1,
+    "reference": 0
+   }
+  },
+  {
+   "id": "B12",
+   "title": "File type not checked from its contents",
+   "severity": "High",
+   "area": "Upload",
+   "requirement": "FR-EDD-03 (MIME headers)",
+   "where": "#/apply",
+   "steps": "Upload fake.pdf (a text file renamed to .pdf).",
+   "expected": "Rejected: not a real PDF.",
+   "actual_in_practice_build": "Accepted because the name ends in .pdf.",
+   "subtle": true,
+   "check": {
+    "practice": 1,
+    "reference": 0
+   }
+  },
+  {
+   "id": "B13",
+   "title": "Images are not virus-scanned",
+   "severity": "Critical",
+   "area": "Upload",
+   "requirement": "FR-EDD-03 (virus scan), NFR-03",
+   "where": "#/apply",
+   "steps": "Upload eicar.png (anti-virus test file). Compare with eicar.pdf.",
+   "expected": "Both are blocked by the virus scan.",
+   "actual_in_practice_build": "eicar.pdf is blocked but eicar.png is accepted.",
+   "subtle": true,
+   "check": {
+    "practice": 1,
+    "reference": 0
+   }
+  },
+  {
+   "id": "B14",
+   "title": "Grade cards not required before payment",
+   "severity": "High",
+   "area": "Upload",
+   "requirement": "BR-EDD-02, FR-EDD-03",
+   "where": "#/apply",
+   "steps": "Upload only a Government ID and click Proceed to Pay.",
+   "expected": "Blocked: semester grade cards are required.",
+   "actual_in_practice_build": "Goes to payment.",
+   "subtle": false,
+   "check": {
+    "practice": "PAYMENT_PENDING",
+    "reference": "DRAFT"
+   }
+  },
+  {
+   "id": "B15",
+   "title": "International courier fee is ₹2,250 (should be ₹2,500)",
+   "severity": "High",
+   "area": "Fees",
+   "requirement": "FR-EDD-04",
+   "where": "#/apply, #/fees",
+   "steps": "Choose International Courier and read the delivery fee.",
+   "expected": "₹2,500.",
+   "actual_in_practice_build": "₹2,250.",
+   "subtle": false,
+   "check": {
+    "practice": 2250,
+    "reference": 2500
+   }
+  },
+  {
+   "id": "B16",
+   "title": "Delivery fee charged once per document",
+   "severity": "High",
+   "area": "Fees",
+   "requirement": "FR-EDD-04, BR-EDD-03",
+   "where": "#/apply",
+   "steps": "Add two different documents, choose Speed Post.",
+   "expected": "Delivery ₹150 once per order.",
+   "actual_in_practice_build": "Delivery ₹300 (₹150 × 2 items).",
+   "subtle": true,
+   "check": {
+    "practice": 300,
+    "reference": 150
+   }
+  },
+  {
+   "id": "B17",
+   "title": "Delivery fee never goes down when you change mode",
+   "severity": "High",
+   "area": "Fees",
+   "requirement": "FR-EDD-04",
+   "where": "#/apply",
+   "steps": "Choose Courier, then change back to Self-Pickup.",
+   "expected": "Delivery ₹0.",
+   "actual_in_practice_build": "Delivery stays at the courier price.",
+   "subtle": true,
+   "check": {
+    "practice": 2750,
+    "reference": 500
+   }
+  },
+  {
+   "id": "B18",
+   "title": "Fee not locked at checkout",
+   "severity": "High",
+   "area": "Fees",
+   "requirement": "BR-EDD-03 (locked at checkout)",
+   "where": "#/gateway/:id",
+   "steps": "Proceed to Pay, then as admin raise the CMC fee in Fee master; open the payment page again.",
+   "expected": "Amount stays at the checkout price.",
+   "actual_in_practice_build": "The new fee is charged.",
+   "subtle": true,
+   "check": {
+    "practice": 900,
+    "reference": 500
+   }
+  },
+  {
+   "id": "B19",
+   "title": "Waiver code works on any application, more than once",
+   "severity": "Critical",
+   "area": "Fees",
+   "requirement": "BR-EDD-03 (fee waiver)",
+   "where": "#/app/:id",
+   "steps": "Registrar issues a waiver for application A. Enter that code on application B.",
+   "expected": "Rejected: the code belongs to another application or was already used.",
+   "actual_in_practice_build": "Application B is marked paid for free.",
+   "subtle": true,
+   "check": {
+    "practice": "UNDER_VERIFICATION",
+    "reference": "PAYMENT_PENDING"
+   }
+  },
+  {
+   "id": "B20",
+   "title": "Failed payment treated as paid",
+   "severity": "Critical",
+   "area": "Payment",
+   "requirement": "FR-EDD-05",
+   "where": "#/gateway/:id",
+   "steps": "On the gateway choose \"Failure (declined by bank)\" and Pay.",
+   "expected": "Status stays Payment pending; the student can retry.",
+   "actual_in_practice_build": "Status moves to Under verification.",
+   "subtle": false,
+   "check": {
+    "practice": "UNDER_VERIFICATION",
+    "reference": "PAYMENT_PENDING"
+   }
+  },
+  {
+   "id": "B21",
+   "title": "Gateway confirmation not verified",
+   "severity": "Critical",
+   "area": "Payment",
+   "requirement": "FR-EDD-05 (HMAC), BRS state transitions",
+   "where": "#/qa?tab=gateway",
+   "steps": "Use QA panel > Gateway to send a forged confirmation with a wrong signature and ₹1.",
+   "expected": "Ignored: signature and amount do not match.",
+   "actual_in_practice_build": "The application is marked paid.",
+   "subtle": true,
+   "check": {
+    "practice": "UNDER_VERIFICATION",
+    "reference": "PAYMENT_PENDING"
+   }
+  },
+  {
+   "id": "B22",
+   "title": "Refund offered after verification has started",
+   "severity": "High",
+   "area": "Payment",
+   "requirement": "BR-EDD-04",
+   "where": "#/app/:id",
+   "steps": "Open an application in Under verification.",
+   "expected": "No refund button; fees are non-refundable after scrutiny starts.",
+   "actual_in_practice_build": "A Request refund button is shown and works.",
+   "subtle": false,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  },
+  {
+   "id": "B23",
+   "title": "Duplicate-debit refund scheduled for T+7 (should be T+5)",
+   "severity": "Medium",
+   "area": "Payment",
+   "requirement": "BR-EDD-04",
+   "where": "#/gateway/:id, #/staff/finance",
+   "steps": "Pay with \"Success, but the bank debited twice\"; check the refund due date in Finance.",
+   "expected": "Due 5 days after payment.",
+   "actual_in_practice_build": "Due 7 days after payment.",
+   "subtle": true,
+   "check": {
+    "practice": 7,
+    "reference": 5
+   }
+  },
+  {
+   "id": "B24",
+   "title": "Receipt always shows UPI",
+   "severity": "Medium",
+   "area": "Payment",
+   "requirement": "FR-EDD-05 (e-Receipt), BO-02",
+   "where": "#/receipt/:id",
+   "steps": "Pay by Card, then open the receipt.",
+   "expected": "Payment method: Card.",
+   "actual_in_practice_build": "Payment method: UPI.",
+   "subtle": true,
+   "check": {
+    "practice": "UPI",
+    "reference": "Card"
+   }
+  },
+  {
+   "id": "B25",
+   "title": "Double-clicking Pay creates two payments",
+   "severity": "Critical",
+   "area": "Payment",
+   "requirement": "FR-EDD-05",
+   "where": "#/gateway/:id",
+   "steps": "Double-click Pay.",
+   "expected": "One payment.",
+   "actual_in_practice_build": "Two payments are recorded and charged.",
+   "subtle": true,
+   "check": {
+    "practice": 2,
+    "reference": 1
+   }
+  },
+  {
+   "id": "B26",
+   "title": "Query can be raised without a remark",
+   "severity": "Medium",
+   "area": "Scrutiny",
+   "requirement": "BRS state transitions (mandatory remark)",
+   "where": "#/staff/clerk/:id",
+   "steps": "As clerk, click Raise query with the remark empty.",
+   "expected": "Blocked: a remark is required.",
+   "actual_in_practice_build": "Query raised with no remark.",
+   "subtle": false,
+   "check": {
+    "practice": "QUERY_RAISED",
+    "reference": "UNDER_VERIFICATION"
+   }
+  },
+  {
+   "id": "B27",
+   "title": "More than 2 resubmissions allowed",
+   "severity": "Medium",
+   "area": "Scrutiny",
+   "requirement": "BRS state transitions (max 2 cycles)",
+   "where": "#/app/:id",
+   "steps": "Raise a query 3 times on the same application and resubmit each time.",
+   "expected": "After 2 resubmissions the option is gone.",
+   "actual_in_practice_build": "A third resubmission is allowed.",
+   "subtle": true,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  },
+  {
+   "id": "B28",
+   "title": "Clerk can approve without the eligibility check",
+   "severity": "Critical",
+   "area": "Scrutiny",
+   "requirement": "FR-EDD-06, BRS state transitions",
+   "where": "#/staff/clerk/:id",
+   "steps": "Approve a PDC application for 1KV20EC045 (not cleared).",
+   "expected": "Blocked: the Tabulation Register shows exams not cleared.",
+   "actual_in_practice_build": "Approved for signing.",
+   "subtle": false,
+   "check": {
+    "practice": "APPROVED_FOR_SIGNING",
+    "reference": "UNDER_VERIFICATION"
+   }
+  },
+  {
+   "id": "B29",
+   "title": "Query notification sent by SMS only",
+   "severity": "Low",
+   "area": "Scrutiny",
+   "requirement": "FR-EDD-06, BRS state transitions (SMS + Email)",
+   "where": "#/qa?tab=outbox",
+   "steps": "Raise a query and check the QA outbox.",
+   "expected": "One SMS and one e-mail.",
+   "actual_in_practice_build": "SMS only.",
+   "subtle": true,
+   "check": {
+    "practice": "SMS",
+    "reference": "Email+SMS"
+   }
+  },
+  {
+   "id": "B30",
+   "title": "Expired DSC accepted for signing",
+   "severity": "Critical",
+   "area": "Signing",
+   "requirement": "BRS state transitions (valid Class-3 DSC)",
+   "where": "#/staff/registrar",
+   "steps": "Choose DSC-C3-2025 (expired) and sign.",
+   "expected": "Rejected: the certificate has expired.",
+   "actual_in_practice_build": "The document is signed and published.",
+   "subtle": false,
+   "check": {
+    "practice": "SIGNED_&_PUBLISHED",
+    "reference": "APPROVED_FOR_SIGNING"
+   }
+  },
+  {
+   "id": "B31",
+   "title": "Public verification page shows DOB and mobile",
+   "severity": "High",
+   "area": "Verification",
+   "requirement": "NFR-03, BRS data model (PII masked)",
+   "where": "#/verify",
+   "steps": "Verify any signed certificate without signing in.",
+   "expected": "Name, USN, document and date only; personal details hidden.",
+   "actual_in_practice_build": "DOB and mobile number are shown to anyone.",
+   "subtle": false,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  },
+  {
+   "id": "B32",
+   "title": "Verification matches on the first 8 characters of the hash",
+   "severity": "Critical",
+   "area": "Verification",
+   "requirement": "FR-EDD-07 (SHA-256)",
+   "where": "#/verify",
+   "steps": "Take a valid hash, keep the first 8 characters and change the rest.",
+   "expected": "\"Not found\": the full hash must match.",
+   "actual_in_practice_build": "Reported as AUTHENTIC.",
+   "subtle": true,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  },
+  {
+   "id": "B33",
+   "title": "12-character AWB accepted at dispatch",
+   "severity": "Medium",
+   "area": "Dispatch",
+   "requirement": "BRS state transitions (13-character barcode)",
+   "where": "#/staff/dispatch",
+   "steps": "Enter EE12345678IN (12 characters) and save.",
+   "expected": "Rejected: India Post numbers are 13 characters (2 letters, 9 digits, IN).",
+   "actual_in_practice_build": "Dispatched with the invalid number.",
+   "subtle": true,
+   "check": {
+    "practice": "DISPATCHED",
+    "reference": "SIGNED_&_PUBLISHED"
+   }
+  },
+  {
+   "id": "B34",
+   "title": "Public tracking ignores the USN",
+   "severity": "High",
+   "area": "Tracking",
+   "requirement": "FR-EDD-08",
+   "where": "#/track",
+   "steps": "Track someone else's application ID with your own USN.",
+   "expected": "\"No application found\" unless the ID and USN belong together.",
+   "actual_in_practice_build": "Their status is shown.",
+   "subtle": true,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  },
+  {
+   "id": "B35",
+   "title": "\"Verified\" milestone missing from the timeline",
+   "severity": "Low",
+   "area": "Tracking",
+   "requirement": "FR-EDD-08",
+   "where": "#/app/:id, #/track",
+   "steps": "Look at the timeline of any application.",
+   "expected": "Submitted → Paid → Verified → Signed → Dispatched.",
+   "actual_in_practice_build": "Verified is missing (4 steps).",
+   "subtle": true,
+   "check": {
+    "practice": 4,
+    "reference": 5
+   }
+  },
+  {
+   "id": "B36",
+   "title": "Grievance description limited to 1500 characters",
+   "severity": "Medium",
+   "area": "Grievance intake",
+   "requirement": "FR-GRV-01",
+   "where": "#/grievance/new",
+   "steps": "Type 1800 characters and submit.",
+   "expected": "Accepted (limit is 2000).",
+   "actual_in_practice_build": "Rejected: \"Maximum 1500 characters\".",
+   "subtle": true,
+   "check": {
+    "practice": 0,
+    "reference": 1
+   }
+  },
+  {
+   "id": "B37",
+   "title": "Four attachments allowed",
+   "severity": "Low",
+   "area": "Grievance intake",
+   "requirement": "FR-GRV-01",
+   "where": "#/grievance/new",
+   "steps": "Attach 4 PDFs and submit.",
+   "expected": "Rejected: up to 3 PDFs.",
+   "actual_in_practice_build": "Submitted with 4.",
+   "subtle": false,
+   "check": {
+    "practice": 1,
+    "reference": 0
+   }
+  },
+  {
+   "id": "B38",
+   "title": "Future incident date accepted",
+   "severity": "Medium",
+   "area": "Grievance intake",
+   "requirement": "FR-GRV-01",
+   "where": "#/grievance/new",
+   "steps": "Set the incident date to next year.",
+   "expected": "Rejected: cannot be in the future.",
+   "actual_in_practice_build": "Accepted.",
+   "subtle": false,
+   "check": {
+    "practice": 1,
+    "reference": 0
+   }
+  },
+  {
+   "id": "B39",
+   "title": "Ticket ID has 4 digits instead of 5",
+   "severity": "Low",
+   "area": "Grievance intake",
+   "requirement": "FR-GRV-01 (ticket ID format)",
+   "where": "#/grievance/:id",
+   "steps": "Lodge a grievance and read its ID.",
+   "expected": "KVTU-GRV-2026-00001.",
+   "actual_in_practice_build": "KVTU-GRV-2026-0001.",
+   "subtle": true,
+   "check": {
+    "practice": 4,
+    "reference": 5
+   }
+  },
+  {
+   "id": "B40",
+   "title": "Anti-ragging complaints routed to the college principal",
+   "severity": "Critical",
+   "area": "Routing",
+   "requirement": "FR-GRV-02, BR-GRV-01",
+   "where": "#/staff/grievances",
+   "steps": "Lodge an Anti-Ragging grievance; see which inbox gets it.",
+   "expected": "Statutory Cell (Anti-Ragging), bypassing the college.",
+   "actual_in_practice_build": "The student's college principal.",
+   "subtle": false,
+   "check": {
+    "practice": "principal",
+    "reference": "statcell"
+   }
+  },
+  {
+   "id": "B41",
+   "title": "Revaluation routed to the principal",
+   "severity": "High",
+   "area": "Routing",
+   "requirement": "FR-GRV-02 (Exam/Marks → Registrar)",
+   "where": "#/staff/grievances",
+   "steps": "Lodge a Revaluation grievance.",
+   "expected": "Registrar (Evaluation).",
+   "actual_in_practice_build": "College principal.",
+   "subtle": true,
+   "check": {
+    "practice": "principal",
+    "reference": "registrar"
+   }
+  },
+  {
+   "id": "B42",
+   "title": "Principal sees other colleges' tickets",
+   "severity": "Critical",
+   "area": "Routing",
+   "requirement": "NFR-03 (RBAC)",
+   "where": "#/staff/grievances",
+   "steps": "Sign in as principal.mv and open the inbox.",
+   "expected": "Only Malnad Valley (MV) college tickets.",
+   "actual_in_practice_build": "Tickets from every college.",
+   "subtle": true,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  },
+  {
+   "id": "B43",
+   "title": "SLA counts calendar days, not working days",
+   "severity": "High",
+   "area": "SLA",
+   "requirement": "BR-GRV-02, FR-GRV-03",
+   "where": "#/grievance/:id",
+   "steps": "Lodge a grievance on a Friday (use the QA clock); check \"Respond by\".",
+   "expected": "5 working days later (skips the weekend).",
+   "actual_in_practice_build": "5 calendar days later.",
+   "subtle": true,
+   "check": {
+    "practice": 25,
+    "reference": 27
+   }
+  },
+  {
+   "id": "B44",
+   "title": "Amber warning starts at 24 h left (should be 48 h)",
+   "severity": "Low",
+   "area": "SLA",
+   "requirement": "FR-GRV-03",
+   "where": "#/staff/grievances",
+   "steps": "Advance the clock so 30 hours remain; look at the SLA badge.",
+   "expected": "Amber.",
+   "actual_in_practice_build": "Still green.",
+   "subtle": true,
+   "check": {
+    "practice": "green",
+    "reference": "amber"
+   }
+  },
+  {
+   "id": "B45",
+   "title": "No escalation from Tier 2 to Tier 3",
+   "severity": "Critical",
+   "area": "SLA",
+   "requirement": "BO-05, BR-GRV-02",
+   "where": "#/staff/grievances",
+   "steps": "Let a Tier-2 ticket pass its SLA (QA clock).",
+   "expected": "Escalates to the Ombudsperson (Tier 3).",
+   "actual_in_practice_build": "Stays at Tier 2, breached forever.",
+   "subtle": true,
+   "check": {
+    "practice": 2,
+    "reference": 3
+   }
+  },
+  {
+   "id": "B46",
+   "title": "SLA extension can be taken twice",
+   "severity": "Medium",
+   "area": "SLA",
+   "requirement": "BR-GRV-02",
+   "where": "#/staff/grievance/:id",
+   "steps": "As the officer, request an extension twice.",
+   "expected": "Only one extension per ticket.",
+   "actual_in_practice_build": "Second extension granted.",
+   "subtle": true,
+   "check": {
+    "practice": 2,
+    "reference": 1
+   }
+  },
+  {
+   "id": "B47",
+   "title": "Resolved tickets auto-close after 3 days",
+   "severity": "High",
+   "area": "Closure",
+   "requirement": "BR-GRV-03, BRD Step 2.4",
+   "where": "#/grievance/:id",
+   "steps": "Resolve a ticket and read \"auto-closes on\".",
+   "expected": "7 days after resolution.",
+   "actual_in_practice_build": "3 days after resolution.",
+   "subtle": true,
+   "check": {
+    "practice": 3,
+    "reference": 7
+   }
+  },
+  {
+   "id": "B48",
+   "title": "Reopening does not restart the SLA",
+   "severity": "High",
+   "area": "Closure",
+   "requirement": "FR-GRV-04, BR-GRV-03",
+   "where": "#/grievance/:id",
+   "steps": "Reopen a resolved ticket; check Respond by.",
+   "expected": "A fresh 5-working-day SLA.",
+   "actual_in_practice_build": "The old (nearly expired) deadline is kept.",
+   "subtle": true,
+   "check": {
+    "practice": false,
+    "reference": true
+   }
+  },
+  {
+   "id": "B49",
+   "title": "Second reopen not escalated to the Ombudsperson",
+   "severity": "High",
+   "area": "Closure",
+   "requirement": "BR-GRV-03",
+   "where": "#/grievance/:id",
+   "steps": "Reopen the same ticket a second time.",
+   "expected": "Goes straight to Tier 3 (Ombudsperson).",
+   "actual_in_practice_build": "Returns to the same officer.",
+   "subtle": true,
+   "check": {
+    "practice": 1,
+    "reference": 3
+   }
+  },
+  {
+   "id": "B50",
+   "title": "Rating accepts values outside 1–5",
+   "severity": "Low",
+   "area": "Closure",
+   "requirement": "FR-GRV-04",
+   "where": "#/grievance/:id",
+   "steps": "In the rating box type 0 (or 9) and click Satisfied.",
+   "expected": "Only 1 to 5 stars.",
+   "actual_in_practice_build": "Saved as 0 (or 9).",
+   "subtle": false,
+   "check": {
+    "practice": 0,
+    "reference": 5
+   }
+  },
+  {
+   "id": "B51",
+   "title": "Officer can edit or delete remarks",
+   "severity": "Critical",
+   "area": "Audit",
+   "requirement": "BO-06, BRS data model (append-only)",
+   "where": "#/staff/grievance/:id",
+   "steps": "As officer, look at your earlier message in the conversation.",
+   "expected": "No edit/delete: the trail is append-only.",
+   "actual_in_practice_build": "Edit and Delete links are shown and work.",
+   "subtle": false,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  },
+  {
+   "id": "B52",
+   "title": "Grievance form labels not translated",
+   "severity": "Low",
+   "area": "Language",
+   "requirement": "FR-GRV-05, NFR-04",
+   "where": "#/grievance/new",
+   "steps": "Switch to ಕನ್ನಡ on the grievance form.",
+   "expected": "Every label in Kannada.",
+   "actual_in_practice_build": "Five labels stay in English.",
+   "subtle": true,
+   "check": {
+    "practice": "Incident date",
+    "reference": "ಘಟನೆಯ ದಿನಾಂಕ"
+   }
+  },
+  {
+   "id": "B53",
+   "title": "Switching language wipes typed form data",
+   "severity": "Medium",
+   "area": "Language",
+   "requirement": "FR-GRV-05 (instant toggle)",
+   "where": "#/grievance/new",
+   "steps": "Type a description, then switch language.",
+   "expected": "Text is kept.",
+   "actual_in_practice_build": "Form is cleared.",
+   "subtle": false,
+   "check": {
+    "practice": "",
+    "reference": "Typed before switching language"
+   }
+  },
+  {
+   "id": "B54",
+   "title": "OTP box has no label; hint text too faint",
+   "severity": "Medium",
+   "area": "Accessibility",
+   "requirement": "NFR-04 (WCAG 2.1 AA)",
+   "where": "#/otp",
+   "steps": "Inspect the OTP field with a screen reader or browser dev-tools.",
+   "expected": "A visible, linked label; hint contrast ≥ 4.5:1.",
+   "actual_in_practice_build": "No label; very light grey hint.",
+   "subtle": true,
+   "check": {
+    "practice": false,
+    "reference": true
+   }
+  },
+  {
+   "id": "B55",
+   "title": "MIS open count leaves out escalated tickets",
+   "severity": "High",
+   "area": "MIS",
+   "requirement": "FR-GRV-05 (counts match database)",
+   "where": "#/mis",
+   "steps": "Compare MIS \"Open\" with the number of open tickets across all tiers.",
+   "expected": "Includes Tier 2 and Tier 3.",
+   "actual_in_practice_build": "Counts Tier 1 only.",
+   "subtle": true,
+   "check": {
+    "practice": 1,
+    "reference": 2
+   }
+  },
+  {
+   "id": "B56",
+   "title": "Principal's MIS shows all colleges",
+   "severity": "High",
+   "area": "MIS",
+   "requirement": "FR-GRV-05 (role-based), NFR-03",
+   "where": "#/mis",
+   "steps": "Sign in as principal.kv and open MIS.",
+   "expected": "Only KV college figures.",
+   "actual_in_practice_build": "University-wide figures.",
+   "subtle": true,
+   "check": {
+    "practice": 2,
+    "reference": 1
+   }
+  },
+  {
+   "id": "B57",
+   "title": "\"Remember this device\" skips staff two-factor sign-in",
+   "severity": "Critical",
+   "area": "Security",
+   "requirement": "NFR-03 (2FA for staff)",
+   "where": "#/staff/login",
+   "steps": "Tick Remember this device and sign in.",
+   "expected": "OTP is still required.",
+   "actual_in_practice_build": "Signed in with the password only.",
+   "subtle": false,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  },
+  {
+   "id": "B58",
+   "title": "Staff pages open to students by URL",
+   "severity": "Critical",
+   "area": "Security",
+   "requirement": "NFR-03 (RBAC)",
+   "where": "#/staff/clerk",
+   "steps": "Signed in as a student, type #/staff/clerk in the address bar.",
+   "expected": "\"You do not have access to this page\".",
+   "actual_in_practice_build": "The clerk workbench opens.",
+   "subtle": false,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  },
+  {
+   "id": "B59",
+   "title": "Script in a grievance runs in the officer's browser (XSS)",
+   "severity": "Critical",
+   "area": "Security",
+   "requirement": "NFR-03 (OWASP Top 10)",
+   "where": "#/staff/grievance/:id",
+   "steps": "Lodge a grievance whose description contains <img src=x onerror=alert(1)>; open it as the officer.",
+   "expected": "Shown as plain text.",
+   "actual_in_practice_build": "The script runs in the officer's session.",
+   "subtle": true,
+   "check": {
+    "practice": true,
+    "reference": false
+   }
+  }
+ ]
+}

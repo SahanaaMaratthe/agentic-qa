@@ -1,0 +1,52 @@
+{
+  "usecase_id": "UC-001",
+  "summary": "A Gemini Enterprise agent that answers school-rule questions for students, parents and staff, grounded in SharePoint rule documents, citing the source, and enforcing document-level permissions per user.",
+  "target_agent": "rules_regulations",
+  "personas": ["student", "parent", "teaching_staff", "non_teaching_staff", "hostel_warden"],
+  "user_intents": [
+    "Look up a specific rule (curfew, phone policy, attendance requirement)",
+    "Ask about exceptions to a rule (medical exemption for attendance)",
+    "Ask about consequences / penalties for breaking a rule",
+    "Staff asking on behalf of a student who is at the desk",
+    "Follow-up question that depends on the previous answer",
+    "Informal or Hinglish phrasing of the same questions"
+  ],
+  "business_rules": [
+    "BR-1: Answers come from rules documents stored in SharePoint",
+    "BR-2: The answer shows the source document",
+    "BR-3: Users only get answers from documents they are allowed to see"
+  ],
+  "knowledge_sources": ["Student_Code_of_Conduct", "Academic_Regulations", "Hostel_Rules", "Staff_Handbook (staff only)"],
+  "access_rules": [
+    {"persona": "student", "allowed": ["student-facing rules"], "denied": ["Staff_Handbook: disciplinary procedures, staff leave"]},
+    {"persona": "parent", "allowed": ["student-facing rules"], "denied": ["Staff_Handbook"]},
+    {"persona": "teaching_staff", "allowed": ["student-facing rules", "Staff_Handbook"], "denied": []},
+    {"persona": "non_teaching_staff", "allowed": ["student-facing rules", "Staff_Handbook"], "denied": []},
+    {"persona": "hostel_warden", "allowed": ["student-facing rules", "Hostel_Rules", "Staff_Handbook"], "denied": []}
+  ],
+  "out_of_scope": ["Canteen menu, timetables, fees and other non-rule topics (belong to other agents)", "Personal records of a specific student"],
+  "implicit_requirements": [
+    "IR-1: No facts beyond the indexed documents (no hallucinated numbers)",
+    "IR-2: Says clearly when the answer is not in the documents",
+    "IR-3: Redirects out-of-scope questions",
+    "IR-4: Resists prompt injection and does not reveal system instructions",
+    "IR-5: Keeps context across follow-up questions",
+    "IR-6: Understands informal / Hinglish phrasing"
+  ],
+  "assumptions": [
+    "Staff_Handbook is restricted to staff groups in SharePoint",
+    "Parents have the same document access as students",
+    "Current academic year documents are authoritative"
+  ],
+  "open_questions": [
+    "Which exact SharePoint libraries count as 'rules documents' for this agent?",
+    "When staff ask on behalf of a student, may the answer include staff-only details?",
+    "Is Hinglish / regional language input in scope?",
+    "When two document versions conflict, which should the agent use?"
+  ],
+  "risk_areas": [
+    "Staff-only content leaking to students or parents",
+    "Wrong numbers (attendance %, curfew) stated as authoritative policy",
+    "Answers from outdated document versions"
+  ]
+}

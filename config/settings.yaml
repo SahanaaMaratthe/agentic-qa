@@ -1,0 +1,116 @@
+# ============================================================
+#  agentic-qa settings. Everything platform-specific lives here.
+# ============================================================
+
+# ---- LLM that powers the four agents ---------------------------
+# provider: gemini | anthropic | openai | mock
+llm:
+  provider: mock
+  fixtures_dir: fixtures/mock_llm
+  temperature: 0.2
+  max_tokens: 16000
+
+# Real examples (uncomment one):
+# llm: {provider: gemini, model: gemini-2.5-pro, vertex: true, project: my-gcp-project, location: us-central1}
+# llm: {provider: gemini, model: gemini-2.5-pro}                       # uses GEMINI_API_KEY
+# llm: {provider: anthropic, model: claude-sonnet-5-5}                 # uses ANTHROPIC_API_KEY
+# llm: {provider: openai, model: gpt-4.1}                              # uses OPENAI_API_KEY
+# llm: {provider: openai, model: llama3.1, base_url: http://localhost:11434/v1}   # Ollama / local
+
+# Optional: give individual agents a different model (merged over `llm`)
+llm_overrides: {}
+#  test_designer: {model: gemini-2.5-pro}
+#  defect_manager:      {model: gemini-2.5-flash}
+
+# Model used for `semantic` assertions (LLM-as-judge). Merged over `llm`.
+judge_llm: {}
+#  {temperature: 0}
+
+# ---- Reading documents (BRD / BRS / use cases in any format) -----
+ingest:
+  profile: default          # config/profiles/<name>.yaml; per client: --profile client_abc
+  plugins: []               # extra plug-in modules, e.g. [my_company.qa_plugins]
+
+# ---- Where documents can come from -----------------------------
+# Local files/folders always work. Drive links need one of these blocks.
+sources:
+  gdrive:
+    auth: adc               # adc | oauth | service_account | token_env | token_command
+    # adc  = your own account, after:  gcloud auth application-default login --scopes=https://www.googleapis.com/auth/drive.readonly,https://www.googleapis.com/auth/cloud-platform
+    # client_secrets: config/secrets/gdrive_oauth_client.json   # auth: oauth
+    # key_file: config/secrets/gdrive_service_account.json      # auth: service_account
+  sharepoint:
+    auth: device_code       # device_code (your own account) | client_secret | token_env | token_command
+    tenant_id: organizations   # or your tenant (directory) ID
+    client_id: ""           # Entra app registration ID (ask IT); read-only Files.Read.All / Sites.Read.All
+    # secret_env: SP_CLIENT_SECRET                               # auth: client_secret
+
+# ---- Agent under test -----------------------------------------
+# type: none  -> stop after test design (e.g. portal BRDs with no chatbot to call)
+target:
+  type: mock
+  knowledge_base: fixtures/mock_kb.yaml
+  persona_groups:
+    student:            {access_groups: [students]}
+    parent:             {access_groups: [parents]}
+    teaching_staff:     {access_groups: [staff, teachers]}
+    non_teaching_staff: {access_groups: [staff]}
+    hostel_warden:      {access_groups: [staff, hostel]}
+
+# Gemini Enterprise example:
+# target:
+#   type: gemini_enterprise
+#   project_id: my-gcp-project
+#   location: global                 # or us / eu
+#   app_id: school-assistant_1234567890
+#   assistant: default_assistant
+#   quota_project: my-gcp-project
+#   agents:                          # logical name (from Requirement Analyst) -> Gemini Enterprise agentId
+#     rules_regulations: "1234567890123"
+#     hostel: "9876543210987"
+#   # One identity per persona so SharePoint ACLs are really exercised.
+#   personas_auth:
+#     student:            {token_env: GE_TOKEN_STUDENT}
+#     non_teaching_staff: {token_env: GE_TOKEN_NTSTAFF}
+#     teaching_staff:     {token_command: "python scripts/get_token.py teaching_staff"}
+#   default_auth: {token_command: "gcloud auth print-access-token"}
+#   timeout_s: 120
+
+# Any other REST bot (Copilot Studio via Direct Line, custom API...):
+# target:
+#   type: http
+#   url: https://bot.example.com/api/chat
+#   headers: {Authorization: "Bearer {{ token }}"}
+#   body_template: '{"message": {{ message|tojson }}, "persona": "{{ persona }}", "session": {{ session|tojson }}}'
+#   response_text_path: answer
+#   citations_path: sources
+#   session_path: session_id
+#   personas_auth: {student: {token_env: BOT_TOKEN_STUDENT}}
+
+# ---- Execution -------------------------------------------------
+run:
+  concurrency: 4
+  repeats: 1          # >1 runs each test N times and marks mixed outcomes as "flaky"
+
+# ---- Bug tracker (Defect Manager) ------------------------------------
+tracker:
+  type: markdown      # markdown | jira
+  file_bugs: false    # true = actually create tickets
+  file_classifications: [product_bug, needs_review]
+# tracker:
+#   type: jira
+#   file_bugs: true
+#   base_url: https://yourorg.atlassian.net
+#   project_key: SCHQA
+#   issue_type: Bug
+#   email_env: JIRA_EMAIL
+#   token_env: JIRA_API_TOKEN
+#   severity_to_priority: {Critical: Highest, High: High, Medium: Medium, Low: Low}
+#   file_classifications: [product_bug]
+
+paths:
+  domain_context: config/domain_context.md
+  personas: config/personas.yaml
+  skeleton: config/testcase_skeleton.yaml
+  glossary: config/glossary.yaml
+  runs: runs

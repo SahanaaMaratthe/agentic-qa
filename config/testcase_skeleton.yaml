@@ -1,0 +1,27 @@
+# Your organisation's test-case template.
+# `field` is either a core TestCase field or `extra.<name>` for a custom column
+# that the Test Designer fills in. Reorder / rename / add / remove columns freely: the CSV
+# export follows this order exactly. Test cases are sorted Critical -> High -> Medium -> Low.
+#
+# Core fields: id, usecase_id, title, purpose, perspective, category, priority, priority_reason,
+#              business_impact, persona, preconditions, steps, expected_result,
+#              acceptance_criteria, traceability, based_on_assumption
+columns:
+  - {name: Test Case ID,        field: id}
+  - {name: Use Case ID,         field: usecase_id}
+  - {name: Module,              field: extra.module,          description: "Agent / functional area, e.g. Rules & Regulations"}
+  - {name: Test Scenario,       field: title}
+  - {name: Purpose,             field: purpose}
+  - {name: Perspective,         field: perspective}
+  - {name: Test Type,           field: category}
+  - {name: Priority,            field: priority}
+  - {name: Why this Priority,   field: priority_reason}
+  - {name: Business Impact,     field: business_impact}
+  - {name: User Persona,        field: persona}
+  - {name: Pre-conditions,      field: preconditions}
+  - {name: Test Steps,          field: steps}
+  - {name: Test Data,           field: extra.test_data,       description: "Concrete values / documents the test relies on"}
+  - {name: Expected Result,     field: expected_result}
+  - {name: Acceptance Criteria, field: acceptance_criteria}
+  - {name: BRD Reference,       field: traceability}
+  - {name: Depends on Gap,      field: based_on_assumption}

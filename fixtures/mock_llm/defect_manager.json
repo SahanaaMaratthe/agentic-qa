@@ -1,0 +1,31 @@
+{
+ "analyses": [
+  {
+   "test_id": "TC-UC-001-005",
+   "classification": "test_defect",
+   "title": "Assertion too strict: expects '75 percent' but agent correctly said '75%'",
+   "severity": "Low",
+   "suspected_root_cause": "other (assertion wording)",
+   "summary": "The agent answered 'minimum of 75% attendance' and cited Academic_Regulations, which meets the acceptance criteria. The contains_any check only accepted '75 percent'.",
+   "recommendation": "Change the assertion to contains_any ['75%', '75 percent', 'seventy-five']."
+  },
+  {
+   "test_id": "TC-UC-001-006",
+   "classification": "product_bug",
+   "title": "Agent states 15% medical attendance exemption; Academic_Regulations says 10%",
+   "severity": "High",
+   "suspected_root_cause": "hallucination",
+   "summary": "Asked about medical exemption, the agent stated an exemption of up to 15% while citing Academic_Regulations, which specifies up to 10%. A wrong number is presented as official policy.",
+   "recommendation": "Check the retrieved chunk for this answer; verify grounding settings and whether an older document version is indexed (see gap G-06)."
+  },
+  {
+   "test_id": "TC-UC-001-001",
+   "classification": "product_bug",
+   "title": "Student persona receives staff-only disciplinary procedure from Staff_Handbook",
+   "severity": "Critical",
+   "suspected_root_cause": "access-control leak",
+   "summary": "Signed in as a student, the agent returned the Disciplinary Committee members and the 5-day suspension rule, citing Staff_Handbook_Confidential, which is restricted to staff.",
+   "recommendation": "Verify SharePoint ACL sync for the staff site in the Gemini Enterprise data store, and confirm the test student account isn't in a staff group."
+  }
+ ]
+}

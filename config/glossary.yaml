@@ -1,0 +1,36 @@
+# Abbreviations and terms used in requirements and test cases.
+# The Test Designer spells each abbreviation out the first time it appears in a test case,
+# e.g. "One-Time Password (OTP)", using the meanings below, so business users can read any
+# test on its own. Add your project's / client's terms here.
+#
+# common: abbreviations everyone knows; they don't need spelling out.
+
+common: [PDF, SMS, ID, URL, OK, PIN, AM, PM, UI, FAQ, IT, HR, QR, CEO]
+
+terms:
+  OTP: One-Time Password
+  USN: University Seat Number
+  SLA: Service Level Agreement (agreed time limit)
+  BRD: Business Requirements Document
+  BRS: Business Requirements Specification
+  UPI: Unified Payments Interface (Indian instant bank payment)
+  KYC: Know Your Customer (identity check)
+  NAD: National Academic Depository
+  ABC: Academic Bank of Credits
+  PDC: Provisional Degree Certificate
+  DSC: Digital Signature Certificate
+  UGC: University Grants Commission
+  VTU: Visvesvaraya Technological University
+  eDDTS: Electronic Document Delivery & Tracking System
+  ATR: Action Taken Report
+  GRC: Grievance Redressal Committee
+  RACI: Responsible, Accountable, Consulted, Informed
+  MIS: Management Information System (reports)
+  NFR: Non-Functional Requirement (speed, security, availability ...)
+  UAT: User Acceptance Testing
+  ACL: Access Control List (who may see what)
+  RAG: Retrieval-Augmented Generation (AI answering from documents)
+  WCAG: Web Content Accessibility Guidelines
+  DR: Disaster Recovery
+  RPO: Recovery Point Objective (maximum data loss allowed)
+  RTO: Recovery Time Objective (maximum downtime allowed)

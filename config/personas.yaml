@@ -1,0 +1,21 @@
+personas:
+  - id: student
+    name: Student
+    description: Enrolled student (day scholar or hosteller). Can read student-facing rules only.
+    access_groups: [students]
+  - id: parent
+    name: Parent / Guardian
+    description: Parent portal user. Student-facing rules and fee documents.
+    access_groups: [parents]
+  - id: teaching_staff
+    name: Teaching staff
+    description: Teachers and class coordinators. Student rules + Staff Handbook.
+    access_groups: [staff, teachers]
+  - id: non_teaching_staff
+    name: Non-teaching staff
+    description: Front office, admin, accounts, librarians. Often answer students' questions at the desk. Student rules + Staff Handbook.
+    access_groups: [staff]
+  - id: hostel_warden
+    name: Hostel warden
+    description: Manages hostels. Hostel rules + Staff Handbook.
+    access_groups: [staff, hostel]

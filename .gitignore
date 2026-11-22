@@ -1,0 +1,9 @@
+runs/
+__pycache__/
+.pytest_cache/
+.env
+config/settings.local.yaml
+.venv/
+venv/
+config/secrets/
+*.token

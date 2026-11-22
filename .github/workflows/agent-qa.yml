@@ -1,0 +1,26 @@
+# Example CI job. The same two commands work in Jenkins, GitLab CI, Azure DevOps or Cloud Build:
+#   pip install -r requirements.txt
+#   python -m qa_agents resume --run-dir approved/UC-001 --from execute --fail-on-bugs
+name: agent-qa
+on:
+  # schedule: [{cron: "30 20 * * *"}]   # nightly
+  workflow_dispatch:
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt google-genai
+      # Re-run an approved, human-reviewed suite (Automation Engineer execute + Defect Manager report)
+      - run: python -m qa_agents resume --run-dir approved/UC-001 --from execute --settings config/settings.ci.yaml --fail-on-bugs
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GE_TOKEN_STUDENT: ${{ secrets.GE_TOKEN_STUDENT }}
+          GE_TOKEN_NTSTAFF: ${{ secrets.GE_TOKEN_NTSTAFF }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: qa-report, path: approved/UC-001}
