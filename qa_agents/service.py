@@ -89,14 +89,15 @@ def conflicts_as_gaps(conflicts: list[Conflict]) -> list[Gap]:
 
 
 def run_batch(pv: Preview, settings_path: str = "config/settings.yaml", scenarios: Optional[list[str]] = None,
-              until: str = "report", force: bool = False, review_gate=None, log: Callable = print) -> BatchOutcome:
+              until: str = "report", force: bool = False, review_gate=None, log: Callable = print,
+              app: Optional[str] = None, headed: Optional[bool] = None) -> BatchOutcome:
     if not pv.ok and not force:
         raise IngestError("Ingest confidence is LOW, so the agents were not started. Check the preview, fix the "
                           "client profile, or re-run with force.")
     known = [p.scenario.key for p in pv.result.packages]
     if scenarios and (unknown := [s for s in scenarios if s not in known]):
         raise IngestError(f"Unknown scenario key(s) {unknown}. Found: {known}")
-    pipe = Pipeline(settings_path, log=log)
+    pipe = Pipeline(settings_path, log=log, app=app, headed=headed)
     out = BatchOutcome(batch_dir=pv.batch_dir)
     for pkg in pv.result.packages:
         if scenarios and pkg.scenario.key not in scenarios:
@@ -139,12 +140,46 @@ def export_excel(path: Path, settings_path: str = "config/settings.yaml", log: C
 
 
 def run_legacy(usecase_path: str, settings_path: str = "config/settings.yaml", until: str = "report",
-               reference_text: str = "", review_gate=None, log: Callable = print) -> dict:
-    pipe = Pipeline(settings_path, log=log)
+               reference_text: str = "", review_gate=None, log: Callable = print, app: Optional[str] = None,
+               headed: Optional[bool] = None) -> dict:
+    pipe = Pipeline(settings_path, log=log, app=app, headed=headed)
     uc = load_usecase(Path(usecase_path))
     rd = pipe.new_run_dir(uc)
     log(f"\n=== {uc.id}: {uc.title}  ->  {rd}")
     return pipe.run(rd, uc, stop=until, reference_docs=reference_text, review_gate=review_gate)
+
+
+def run_testcases(testcases: str, settings_path: str = "config/settings.yaml", app: Optional[str] = None,
+                  headed: Optional[bool] = None, until: str = "report", log: Callable = print) -> dict:
+    """Execute existing test cases (02_testcases.json from an earlier run, or a hand-written file in the
+    same format) against the chosen application: Automation Engineer + Defect Manager only."""
+    import json as _json
+    from datetime import datetime
+
+    from .core.models import TestDesign, UseCaseUnderstanding
+
+    src = Path(testcases)
+    if src.is_dir():
+        src = src / "02_testcases.json"
+    if not src.exists():
+        raise IngestError(f"Test-case file not found: {src}")
+    design = TestDesign.model_validate_json(src.read_text(encoding="utf-8"))
+    pipe = Pipeline(settings_path, log=log, app=app, headed=headed)
+    root = Path(load_settings(settings_path).get("paths", {}).get("runs", "runs"))
+    run_dir = root / f"{design.usecase_id}_{pipe.app}_{datetime.now():%Y%m%d_%H%M%S}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    und_src = src.parent / "01_understanding.json"
+    if und_src.exists():
+        und = UseCaseUnderstanding.model_validate_json(und_src.read_text(encoding="utf-8"))
+    else:
+        und = UseCaseUnderstanding(usecase_id=design.usecase_id, summary=design.coverage_notes or design.usecase_id,
+                                   target_agent=pipe.app, personas=sorted({t.persona for t in design.test_cases}),
+                                   user_intents=[], business_rules=[], knowledge_sources=[])
+    (run_dir / "01_understanding.json").write_text(und.model_dump_json(indent=2), encoding="utf-8")
+    (run_dir / "02_testcases.json").write_text(_json.dumps(design.model_dump(mode="json"), indent=2, ensure_ascii=False),
+                                               encoding="utf-8")
+    log(f"\n=== {design.usecase_id}: {len(design.test_cases)} test cases  ->  {run_dir}")
+    return pipe.run(run_dir, start="automate", stop=until)
 
 
 def make_troubleshooter(batch_dir: Path, settings_path: str = "config/settings.yaml", profile: Optional[str] = None):

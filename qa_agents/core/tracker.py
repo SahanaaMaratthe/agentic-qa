@@ -19,7 +19,9 @@ from .models import BugReport
 def render_markdown(b: BugReport) -> str:
     steps = "\n".join(f"{i}. {s}" for i, s in enumerate(b.steps_to_reproduce, 1))
     checks = "\n".join(f"- {c}" for c in b.failed_checks)
-    cites = ", ".join(b.citations_returned) or "none"
+    cites = f"\n**Citations returned:** {', '.join(b.citations_returned)}\n" if b.citations_returned else ""
+    shots = "\n".join(f"![{Path(a).name}]({Path(a).as_posix()})" for a in b.attachments)
+    evidence = f"\n## Evidence (screenshots)\n{shots}\n" if shots else ""
     return f"""# {b.id}: {b.title}
 
 | Field | Value |
@@ -43,15 +45,13 @@ def render_markdown(b: BugReport) -> str:
 
 ## Actual
 {b.actual}
-
-**Citations returned:** {cites}
-
+{cites}
 ## Failed checks
 {checks}
 
 ## Recommendation
 {b.recommendation}
-"""
+{evidence}"""
 
 
 class BugTracker:
@@ -131,7 +131,20 @@ class JiraTracker(BugTracker):
         r = self.s.post(f"{self.base}/rest/api/2/issue", json={"fields": fields})
         if not r.ok:
             raise RuntimeError(f"Jira create failed {r.status_code}: {r.text[:500]}")
-        return r.json()["key"]
+        key = r.json()["key"]
+        self.attach(key, bug.attachments)
+        return key
+
+    def attach(self, key: str, files: list[str]) -> None:
+        """Upload screenshots to the ticket (Jira needs the X-Atlassian-Token header for uploads)."""
+        for f in files[: int(self.cfg.get("max_attachments", 5))]:
+            p = Path(f)
+            if not p.exists():
+                continue
+            with p.open("rb") as fh:
+                self.s.post(f"{self.base}/rest/api/2/issue/{key}/attachments",
+                            headers={"X-Atlassian-Token": "no-check", "Content-Type": None},
+                            files={"file": (p.name, fh, "image/png")})
 
 
 TRACKERS = {"markdown": MarkdownTracker, "jira": JiraTracker}

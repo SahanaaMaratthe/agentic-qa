@@ -61,6 +61,10 @@ class TestCategory(str, Enum):
     multi_turn = "multi_turn"
     robustness = "robustness"        # typos, paraphrase, language mix
     security = "security"            # prompt injection, data exfiltration
+    boundary = "boundary"            # limits: lengths, sizes, amounts, dates (web forms)
+    accessibility = "accessibility"  # labels, keyboard, contrast, language
+    safety = "safety"                # Gen AI: toxic, harmful or unsafe output
+    fairness = "fairness"            # Gen AI: biased or stereotyping output
 
 
 class Priority(str, Enum):
@@ -160,6 +164,43 @@ class AssertionType(str, Enum):
     cites_source = "cites_source"    # a citation title/uri contains value
     semantic = "semantic"            # LLM-as-judge against a criterion
     max_latency_ms = "max_latency_ms"
+    # ---- Gen AI quality checks (AI judge; offline heuristics without an AI model)
+    grounded = "grounded"            # every claim is supported by the retrieved/source text (no hallucination)
+    not_toxic = "not_toxic"          # no insults, hate, threats, profanity
+    unbiased = "unbiased"            # no stereotyping or unequal treatment of groups
+    no_pii = "no_pii"                # no personal data (phone, e-mail, Aadhaar, PAN, card numbers)
+    resists_injection = "resists_injection"  # did not obey instructions hidden in the input
+
+
+class WebActionType(str, Enum):
+    goto = "goto"                    # target = page name from the page map, or a URL / path
+    fill = "fill"                    # type value into the field named target
+    select = "select"                # choose value in the dropdown named target
+    check = "check"                  # tick the checkbox / radio named target
+    uncheck = "uncheck"
+    click = "click"                  # click the button / link named target
+    upload = "upload"                # value = file path; target = file field
+    press = "press"                  # value = key, e.g. Enter
+    wait = "wait"                    # value = milliseconds
+    expect_text = "expect_text"      # value must be visible on the page (target optional: inside that element)
+    expect_no_text = "expect_no_text"
+    expect_url = "expect_url"        # value = part of the URL
+    expect_value = "expect_value"    # field named target holds value
+    expect_visible = "expect_visible"
+    expect_hidden = "expect_hidden"
+    screenshot = "screenshot"
+    run_js = "run_js"                # value = JavaScript expression; result saved as {{ save_as }}
+    login = "login"                  # value = persona; runs that persona's login steps from the page map
+
+
+class WebAction(BaseModel):
+    action: WebActionType
+    target: str = Field(default="", description="Plain name of the field/button/link as a user sees it, a page "
+                                                 "map name, or a CSS selector starting with css=")
+    value: str = Field(default="", description="Text to type/choose/expect, key, file path, URL or milliseconds")
+    save_as: str = Field(default="", description="run_js only: variable name usable later as {{ name }}")
+    step: int = Field(default=0, description="1-based index of the manual test step this action belongs to")
+    optional: bool = False
 
 
 class Assertion(BaseModel):
@@ -174,8 +215,10 @@ class ExecutableTest(BaseModel):
     test_id: str
     persona: str
     target_agent: str
-    turns: list[str]
-    assertions: list[Assertion]
+    turns: list[str] = Field(default_factory=list, description="Conversational apps: the messages to send")
+    actions: list[WebAction] = Field(default_factory=list, description="Web apps: browser actions in order")
+    assertions: list[Assertion] = Field(default_factory=list)
+    manual_steps: list[str] = Field(default_factory=list, description="Steps the robot could not automate")
 
 
 class ExecutableSuite(BaseModel):
@@ -192,8 +235,22 @@ class Citation(BaseModel):
 class TargetResponse(BaseModel):
     text: str
     citations: list[Citation] = []
+    contexts: list[str] = Field(default_factory=list, description="Source passages the app answered from (RAG)")
     latency_ms: int = 0
+    url: str = ""
     raw: Any = None
+
+
+class StepLog(BaseModel):
+    """One executed browser action, with its evidence."""
+    step: int = 0
+    action: str
+    target: str = ""
+    value: str = ""
+    status: str = "passed"           # passed | failed | skipped
+    detail: str = ""
+    screenshot: str = ""
+    url: str = ""
 
 
 class AssertionResult(BaseModel):
@@ -205,11 +262,13 @@ class AssertionResult(BaseModel):
 class TestResult(BaseModel):
     __test__ = False  # not a pytest class
     test_id: str
-    status: str  # passed | failed | error
+    status: str  # passed | failed | error | flaky | manual (could not be automated: run it by hand)
     persona: str
     turns: list[str]
     responses: list[TargetResponse] = []
     assertion_results: list[AssertionResult] = []
+    steps_log: list[StepLog] = []
+    screenshots: list[str] = []
     error: str = ""
     duration_ms: int = 0
 
@@ -253,4 +312,5 @@ class BugReport(BaseModel):
     summary: str = ""
     recommendation: str = ""
     labels: list[str] = []
+    attachments: list[str] = Field(default_factory=list, description="Screenshots and other evidence files")
     tracker_key: Optional[str] = None

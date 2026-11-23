@@ -117,7 +117,7 @@ function draftForm(a) {
   return `
   <section class="card">
     <h2>1. ${t("Choose documents")}</h2>
-    <form id="f-add" class="inline">
+    <form id="f-add" class="inline" novalidate>
       ${field("doctype", "Document", `<select id="doctype">${Object.keys(DOCS).map(k => `<option value="${k}">${docName(k)}</option>`).join("")}</select>`)}
       ${field("qty", "Copies", `<input id="qty" type="number" min="1" max="10" value="1">`, t("1 to 10 copies"))}
       <button class="btn" type="submit">${t("Add to request")}</button>

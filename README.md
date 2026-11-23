@@ -84,18 +84,52 @@ requirements in `demo_site/requirements/` (document requests, payments, grievanc
 It has 59 planted bugs, a reference build with all bugs switched off, a QA panel (clock, outbox, test files)
 and an answer key. See `demo_site/README.md`.
 
+## Application types: choose what you are testing
+
+| `app:` | What it is | How the Automation Engineer tests it |
+|---|---|---|
+| `web` | Website / web portal | A real browser (Playwright) performs each step: open pages, type, choose, click, upload, then checks the texts on screen. Screenshot per step. |
+| `chatbot` | Chatbot | `mode: api`: REST calls (like Postman). `mode: widget`: types into the chat box on a web page and reads the bot's bubbles. |
+| `gemini_enterprise` | Gemini Enterprise agent | `streamAssist` with `agentsSpec` routing, one identity per persona, sessions for multi-turn |
+| `genai` | Gen AI app behind an API | `mode: llm` (one input, one output) or `mode: rag` (returns its source passages); `provider: openai_compatible` for Azure OpenAI / vLLM / Ollama |
+| `mock` | Built-in demo chatbot | offline, no keys |
+| `none` | Design only | test cases and gaps; nothing executed |
+
+```bash
+python -m qa_agents run --usecase demo_site/requirements --app web --headed   # design + run in a visible browser
+python -m qa_agents execute --testcases examples/kvtu_web/testcases.json --app web --headless
+python -m qa_agents resume --run-dir runs/SCN-01_... --from automate --app web
+```
+
+**Web testing.** Steps are read the way testers write them ("Enter '1KV21CS001' in the USN
+field", "Click 'Send OTP'", "Verify the page shows 'Payment successful'"); quoted texts in the
+expected result become on-screen checks. Fields are found in this order: `css=` selectors, the
+**page map** (`config/pagemaps/*.yaml`: page names, field selectors, persona sign-in steps),
+the live page's labels / button texts / placeholders, and finally the **AI** picking from the
+page's elements (with a real model). What it finds by reading the page is saved to
+`learned_page_map.yaml` in the run folder. Steps it cannot automate are marked **manual**.
+Each run writes `screenshots/<test>/`; bug reports and Jira tickets get the failing screenshot.
+`headless: false` / `--headed` shows the browser; `slow_mo_ms` slows it down to watch.
+Test files for upload checks are generated: `generate:big.pdf:5.3MB`, `generate:fake.pdf:text`.
+In mock mode (no AI model) the Test Designer always returns the built-in school chatbot test cases,
+so to see web testing offline use `execute` with `examples/kvtu_web/testcases.json`; with a real
+model, `run --app web` designs web test cases from your BRD/BRS and executes them.
+
+**Gen AI quality checks** (`quality_checks:` in settings), added to every test on an AI app:
+`grounded` (every fact is in the source passages, no hallucination), `not_toxic`, `unbiased`,
+`no_pii` (phone, e-mail, Aadhaar, PAN, card numbers), `resists_injection`. With a real model an
+AI judge decides; in mock mode simple rules do. `critical: false` reports them without failing
+the test. The Test Designer also writes safety, fairness and prompt-injection tests for AI apps,
+and boundary and accessibility tests for web apps.
+
 ## Switching to real systems: edit `config/settings.yaml` only
 
 **1. LLM for the agents**: `provider: gemini | anthropic | openai | mock`. `openai` also
 covers Azure OpenAI, Ollama, vLLM etc. via `base_url`. You can give different models to
 different agents with `llm_overrides`, and use a separate `judge_llm` for semantic checks.
 
-**2. Agent under test**:
-- `gemini_enterprise` calls `streamAssist` on your app, routes to a registered agent with
-  `agentsSpec` (map logical names to agent IDs under `agents:`), and keeps the session for
-  multi-turn tests.
-- `http` works with any REST bot through a body template and response paths.
-- New platform? Subclass `TargetAgent` in `core/target.py` (~20 lines).
+**2. Application under test**: `app:` picks one block under `apps:` (or `--app` on the command
+line, or the dropdown on the web page). See "Application types" below.
 
 **3. Bug tracker**: `markdown` (default) or `jira` (Cloud or Server/DC, REST v2,
 dedupes by test-id label, comments on an existing open bug instead of creating a duplicate).
@@ -160,7 +194,9 @@ Run a whole folder: `run --usecase inputs/usecases/`.
 
 ## Assertion types (Automation Engineer)
 `contains_all`, `contains_any`, `not_contains` (leak checks), `regex`, `refusal`,
-`cites_source`, `semantic` (LLM judge), `max_latency_ms`. Deterministic guardrails in
+`cites_source`, `semantic` (LLM judge), `max_latency_ms`, and the Gen AI checks `grounded`,
+`not_toxic`, `unbiased`, `no_pii`, `resists_injection`. Web tests use browser actions
+(`goto`, `fill`, `select`, `check`, `click`, `upload`, `expect_text`, `expect_no_text`, ...). Deterministic guardrails in
 `AutomationEngineer._harden` stop the LLM from altering the test's prompts or persona, and add a
 refusal check to denial-type access tests.
 
@@ -168,6 +204,8 @@ refusal check to denial-type access tests.
 ```
 config/            settings, domain context, personas, test-case skeleton
 config/profiles/   client profiles for reading documents (default.yaml, example_client.yaml)
+config/pagemaps/   page maps for web apps (kvtu_practice.yaml)
+examples/          ready-to-run test suites (kvtu_web/testcases.json)
 inputs/usecases/   short use cases ("# UC-001: Title" on the first line)
 qa_agents/
   ingest/          reading documents: sources, readers, cleaners, scenarios, conflicts, pipeline

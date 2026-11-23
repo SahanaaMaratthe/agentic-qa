@@ -18,6 +18,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from qa_agents import service  # noqa: E402
+from qa_agents.core.apps import APP_TYPES, resolve_app  # noqa: E402
 from qa_agents.ingest.scenarios import SHARED  # noqa: E402
 
 UPLOAD_TYPES = ["xlsx", "xlsm", "pdf", "docx", "md", "txt"]
@@ -51,9 +52,32 @@ with st.sidebar:
     until = st.selectbox("Run the agents until", ["design", "report"], index=0,
                          format_func=lambda x: {"design": "Test design (test cases + gaps)",
                                                 "report": "Full run (execute + bug reports)"}[x])
-    tgt = settings.get("target", {}).get("type", "mock")
-    st.caption(f"AI model: **{settings.get('llm', {}).get('provider')}** · Agent under test: **{tgt}**")
-    st.caption(f"Settings file: `{ARGS.settings}`")
+    st.divider()
+    app_default = resolve_app(settings)["app"]
+    apps = list(APP_TYPES)
+    app = st.selectbox("Application under test", apps, index=apps.index(app_default),
+                       format_func=lambda k: APP_TYPES[k],
+                       help="What the Automation Engineer runs the tests against. Each type's connection details "
+                            "(URL, page map, tokens) are in settings.yaml under `apps:`.")
+    app_cfg = resolve_app(settings, app)
+    headed = None
+    if app == "web" or app_cfg.get("type") == "chat_widget":
+        headed = st.checkbox("Show the browser while testing", value=not app_cfg.get("headless", True),
+                             help="Ticked: a browser window opens and you watch every click (slower, good for learning). "
+                                  "Unticked: runs hidden.")
+        where = app_cfg.get("base_url") or app_cfg.get("url") or "(set base_url in settings.yaml)"
+        st.caption(f"Website: `{where}`" + (f"  \nPage map: `{app_cfg['page_map']}`" if app_cfg.get("page_map") else ""))
+        if "localhost:8600" in where:
+            st.caption("This is the KVTU practice portal: start it first in a second terminal with "
+                       "`python -m qa_agents demo-site`.")
+    elif app in ("chatbot", "genai"):
+        st.caption(f"Endpoint: `{app_cfg.get('url', '(set url in settings.yaml)')}` · mode **{app_cfg.get('mode', 'api')}**")
+    if app in ("chatbot", "gemini_enterprise", "genai", "mock"):
+        q = settings.get("quality_checks") or {}
+        if q.get("enabled", True):
+            st.caption("Gen AI quality checks: " + ", ".join(q.get("checks", ["no_pii", "not_toxic"]))
+                       + " (+ grounded / injection checks where the test type needs them)")
+    st.caption(f"AI model: **{settings.get('llm', {}).get('provider')}** · Settings file: `{ARGS.settings}`")
 
 st.title("agentic-qa")
 st.caption("Requirement Analyst → Test Designer → Automation Engineer → Defect Manager")
@@ -92,6 +116,30 @@ if st.button("Read documents (preview, no AI)", type="primary"):
             except Exception as e:  # noqa: BLE001 - show any reading problem to the user
                 ss.preview = None
                 st.error(f"Could not read the documents: {e}")
+
+with st.expander("…or run test cases you already have (skip reading and design)"):
+    st.caption("Upload a `02_testcases.json` from an earlier run, or a file in the same format such as "
+               "`examples/kvtu_web/testcases.json`. The Automation Engineer runs them against the application chosen "
+               "on the left, and the Defect Manager reports the failures.")
+    tc_file = st.file_uploader("Test cases (.json)", type=["json"], key="tc_json")
+    if st.button("Run these test cases", disabled=tc_file is None):
+        up = ROOT / "runs" / "ui_uploads" / ss.sid
+        up.mkdir(parents=True, exist_ok=True)
+        f = up / Path(tc_file.name).name
+        f.write_bytes(tc_file.getvalue())
+        ss.log = []
+        with st.status("Automation Engineer and Defect Manager working ...", expanded=True) as status:
+            def log2(*parts):
+                line = " ".join(str(x) for x in parts).strip()
+                if line:
+                    st.write(line)
+            try:
+                summ = service.run_testcases(str(f), ARGS.settings, app, headed, log=log2)
+                ss.outcome = service.BatchOutcome(batch_dir=Path(summ["run_dir"]).parent, runs=[summ])
+                status.update(label="Done", state="complete")
+            except Exception as e:  # noqa: BLE001
+                status.update(label="Failed", state="error")
+                st.error(str(e))
 
 # ------------------------------------------------------------------ 2. preview
 pv = ss.preview
@@ -152,7 +200,7 @@ if pv:
                     ss.log.append(line)
                     st.write(line)
             try:
-                ss.outcome = service.run_batch(pv, ARGS.settings, selected, until, force, log=log)
+                ss.outcome = service.run_batch(pv, ARGS.settings, selected, until, force, log=log, app=app, headed=headed)
                 status.update(label="Done", state="complete")
             except Exception as e:  # noqa: BLE001
                 status.update(label="Failed", state="error")
@@ -209,13 +257,35 @@ if out:
         with tabs[3]:
             sm = rd / "03_summary.md"
             st.markdown(sm.read_text(encoding="utf-8") if sm.exists() else "_Not executed (stopped after test design)._")
+            res_file = rd / "03_results.json"
+            if res_file.exists():
+                import json as _json
+                for res in _json.loads(res_file.read_text(encoding="utf-8")):
+                    logs = res.get("steps_log") or []
+                    if not logs or res.get("status") == "passed":
+                        continue
+                    with st.expander(f"{res['test_id']}: {res['status']} - what the browser did"):
+                        for line in res.get("turns", []):
+                            st.write(("❌ " if "->" in line else "✔️ ") + line)
+                        if res.get("error"):
+                            st.caption(res["error"])
+                        for x in logs:
+                            if x.get("screenshot") and (x.get("status") == "failed" or x["screenshot"].endswith("final.png")):
+                                if Path(x["screenshot"]).exists():
+                                    st.image(x["screenshot"], caption=Path(x["screenshot"]).name)
         with tabs[4]:
             bugs = sorted((rd / "bugs").glob("*.md")) if (rd / "bugs").exists() else []
             if not bugs:
                 st.write("_No bug reports._")
             for b in bugs:
                 with st.expander(b.stem):
-                    st.markdown(b.read_text(encoding="utf-8"))
+                    import re as _re
+                    text = b.read_text(encoding="utf-8")
+                    st.markdown(_re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text))      # images shown below instead
+                    for rel in _re.findall(r"!\[[^\]]*\]\(([^)]*)\)", text):
+                        img = (b.parent / rel).resolve()
+                        if img.exists():
+                            st.image(str(img), caption=img.name)
 
 
 # ------------------------------------------------------------------ 5. troubleshooter

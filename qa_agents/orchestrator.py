@@ -18,6 +18,7 @@ from .agents.requirement_analyst import RequirementAnalyst
 from .agents.test_designer import TestDesigner
 from .agents.automation_engineer import AutomationEngineer
 from .agents.defect_manager import DefectManager
+from .core.apps import APP_TYPES, SYSTEM_KIND, app_kind, is_ai_app, resolve_app
 from .core.llm import build_llm
 from .core.models import (ExecutableSuite, FailureAnalysis, TestDesign, TestResult, UseCase,
                           UseCaseUnderstanding)
@@ -35,16 +36,22 @@ def load_usecase(path: Path) -> UseCase:
 
 
 class Pipeline:
-    def __init__(self, settings_path: str = "config/settings.yaml", log=print):
+    def __init__(self, settings_path: str = "config/settings.yaml", log=print, app: str | None = None,
+                 headed: bool | None = None):
+        """app: override the application type for this run (web, chatbot, gemini_enterprise, genai, mock, none).
+        headed: True = show the browser window, False = hidden; None = as in settings."""
         self.cfg = yaml.safe_load(Path(settings_path).read_text(encoding="utf-8"))
         self.log = log
+        self.target_cfg = resolve_app(self.cfg, app)
+        if headed is not None:
+            self.target_cfg["headless"] = not headed
+        self.app = self.target_cfg["app"]
+        self.kind = app_kind(self.target_cfg)
         p = self.cfg.get("paths", {})
         domain = Path(p.get("domain_context", "config/domain_context.md")).read_text(encoding="utf-8")
         personas = Path(p.get("personas", "config/personas.yaml")).read_text(encoding="utf-8")
-        conversational = (self.cfg.get("target") or {}).get("type", "mock") != "none"
         self.context = {"domain_context": domain, "personas": personas,
-                        "system_kind": "a conversational AI agent (chatbot / assistant)" if conversational else
-                        "an application or portal used through screens and forms (no chatbot)"}
+                        "system_kind": SYSTEM_KIND.get(self.app, SYSTEM_KIND["chatbot"]), "app": self.app}
         base_llm = self.cfg["llm"]
         over = self.cfg.get("llm_overrides") or {}
         llm_for = lambda role: build_llm({**base_llm, **over.get(role, {})})  # noqa: E731
@@ -85,8 +92,11 @@ class Pipeline:
     def run(self, run_dir: Path, usecase: UseCase | None = None, start: str = "analyze", stop: str = "report",
             reference_docs: str = "", review_gate=None, extra_gaps: list | None = None) -> dict:
         """extra_gaps: gaps found before the agents ran (e.g. conflicts between source documents)."""
-        if self.cfg.get("target", {}).get("type") == "none" and STAGES.index(stop) > STAGES.index("design"):
-            self.log("    target.type is 'none': stopping after test design (no agent to execute against).")
+        self.log(f"    Application under test: {APP_TYPES.get(self.app, self.app)}")
+        (run_dir / "00_run.json").write_text(json.dumps({"app": self.app, "adapter": self.target_cfg.get("type")}),
+                                             encoding="utf-8")
+        if self.kind == "none" and STAGES.index(stop) > STAGES.index("design"):
+            self.log("    app is 'none': stopping after test design (nothing to execute against).")
             stop = "design"
         todo = STAGES[STAGES.index(start) : STAGES.index(stop) + 1]
         f = lambda n: run_dir / n  # noqa: E731
@@ -117,14 +127,23 @@ class Pipeline:
 
         if "automate" in todo:
             self.log("[Automation Engineer] Converting test cases to executable suite ...")
-            suite = self.c.convert(design, und.target_agent)
+            from .core.web import load_page_map
+            quality = None
+            if is_ai_app(self.target_cfg):
+                q = self.cfg.get("quality_checks") or {}
+                quality = {"checks": q.get("checks", ["no_pii", "not_toxic"]), "critical": q.get("critical", False)}
+                if q.get("enabled") is False:
+                    quality = None
+            suite = self.c.convert(design, und.target_agent, kind=self.kind,
+                                   page_map=load_page_map(self.target_cfg.get("page_map")), quality=quality)
             self._save(f("03_executable_suite.json"), suite)
         if "execute" in todo:
             suite = ExecutableSuite.model_validate(self._load(f("03_executable_suite.json")))
             rc = self.cfg.get("run", {})
-            self.log(f"[Automation Engineer] Executing {len(suite.tests)} tests against target '{self.cfg['target']['type']}' ...")
-            results = self.c.execute(suite, build_target(self.cfg["target"]), self.judge,
-                                     concurrency=rc.get("concurrency", 4), repeats=rc.get("repeats", 1))
+            self.log(f"[Automation Engineer] Executing {len(suite.tests)} tests on: {APP_TYPES.get(self.app, self.app)} ...")
+            results = self.c.execute(suite, build_target(self.target_cfg), self.judge,
+                                     concurrency=rc.get("concurrency", 4), repeats=rc.get("repeats", 1),
+                                     run_dir=run_dir, log=self.log)
             self._save(f("03_results.json"), results)
             f("03_junit.xml").write_text(self.c.junit_xml(results, design.usecase_id), encoding="utf-8")
             f("03_summary.md").write_text(self.c.summary_md(results), encoding="utf-8")

@@ -1,9 +1,10 @@
-"""Adapters for the *agent under test*.
+"""Adapters for the *application under test*.
 
-    target:
-      type: gemini_enterprise | http | mock
+Chosen with `app:` in settings.yaml (see core/apps.py):
+    gemini_enterprise | chatbot (http API / chat_widget) | genai | mock      -> conversational adapters here
+    web                                                                     -> core/web.py (browser)
 
-Every adapter implements `converse(persona, target_agent, turns) -> list[TargetResponse]`.
+Every conversational adapter implements `converse(persona, target_agent, turns) -> list[TargetResponse]`.
 To test an agent on another platform (Copilot Studio, Vertex Agent Engine,
 Bedrock, a custom FastAPI bot) use `http` with a request template, or add a
 20-line adapter class here.
@@ -171,16 +172,21 @@ class HttpTarget(TargetAgent):
       body_template: '{"message": {{ message|tojson }}, "user": "{{ persona }}", "session": {{ session|tojson }}}'
       response_text_path: data.answer
       citations_path: data.sources        # list of {title, uri} or strings
+      contexts_path: data.chunks          # optional: retrieved passages (RAG) for the `grounded` check
       session_path: data.session_id
     """
+
+    keep_session = True
 
     def converse(self, persona, target_agent, turns):
         c = self.cfg
         token = self._token(persona)
         session = None
         out = []
+        history: list[dict] = []
         for msg in turns:
-            ctx = dict(message=msg, persona=persona, target_agent=target_agent, session=session, token=token)
+            ctx = dict(message=msg, persona=persona, target_agent=target_agent, session=session, token=token,
+                       history=history if self.keep_session else [], **(c.get("variables") or {}))
             headers = {k: Template(v).render(**ctx) for k, v in (c.get("headers") or {}).items()}
             headers.setdefault("Content-Type", "application/json")
             body = Template(c["body_template"]).render(**ctx)
@@ -195,10 +201,45 @@ class HttpTarget(TargetAgent):
             for x in raw_cites or []:
                 cites.append(Citation(title=x, uri="") if isinstance(x, str)
                              else Citation(title=x.get("title", ""), uri=x.get("uri") or x.get("url", "")))
-            session = _dig(data, c["session_path"]) if c.get("session_path") else session
-            out.append(TargetResponse(text=str(_dig(data, c["response_text_path"]) or ""),
-                                      citations=cites, latency_ms=latency))
+            if self.keep_session:
+                session = _dig(data, c["session_path"]) if c.get("session_path") else session
+            raw_ctx = _dig(data, c["contexts_path"]) if c.get("contexts_path") else []
+            if isinstance(raw_ctx, str):
+                raw_ctx = [raw_ctx]
+            contexts = [x if isinstance(x, str) else str(x.get("text") or x.get("content") or x) for x in raw_ctx or []]
+            text = str(_dig(data, c["response_text_path"]) or "")
+            history += [{"role": "user", "content": msg}, {"role": "assistant", "content": text}]
+            out.append(TargetResponse(text=text, citations=cites, contexts=contexts, latency_ms=latency))
         return out
+
+
+# ---------------------------------------------------------------- Gen AI app (LLM API / RAG)
+class GenAITarget(HttpTarget):
+    """A generative AI application behind an API: summariser, writer, classifier (mode: llm),
+    or a document Q&A / RAG app (mode: rag, returns the passages it used in `contexts_path`).
+
+    target (apps.genai):
+      mode: rag                            # llm | rag
+      url: https://genai.example.com/v1/answer
+      body_template: '{"input": {{ message|tojson }}}'
+      response_text_path: output
+      contexts_path: retrieved             # rag: list of passages (strings or {text})
+      multi_turn: false                    # true = send previous turns as {{ history }}
+      provider: openai_compatible          # optional shortcut: an OpenAI-style /chat/completions endpoint
+    """
+
+    def __init__(self, cfg):
+        super().__init__(cfg)
+        self.keep_session = bool(self.cfg.get("multi_turn", False))
+        if self.cfg.get("provider") == "openai_compatible":           # e.g. Azure OpenAI, vLLM, Ollama
+            self.cfg.setdefault("body_template",
+                                '{"model": {{ model|tojson }}, "messages": [{% if system %}{"role": "system", "content": '
+                                '{{ system|tojson }}}, {% endif %}{% for h in history %}{{ h|tojson }}, {% endfor %}'
+                                '{"role": "user", "content": {{ message|tojson }}}]}')
+            self.cfg.setdefault("response_text_path", "choices.0.message.content")
+            self.cfg.setdefault("variables", {}).setdefault("model", self.cfg.get("model", ""))
+            self.cfg["variables"].setdefault("system", self.cfg.get("system_prompt", ""))
+
 
 
 # ---------------------------------------------------------------- Mock (offline demo)
@@ -233,7 +274,7 @@ class MockTarget(TargetAgent):
             return TargetResponse(text="Sorry, I don't have access to information that can answer that for you.")
         text = best.get("wrong_answer") or best["answer"]
         return TargetResponse(text=text, citations=[Citation(title=best["title"], uri=best.get("uri", ""))],
-                              latency_ms=150)
+                              contexts=[best["answer"]], latency_ms=150)
 
     def converse(self, persona, target_agent, turns):
         hist, out = [], []
@@ -243,11 +284,15 @@ class MockTarget(TargetAgent):
         return out
 
 
-TARGETS = {"gemini_enterprise": GeminiEnterpriseTarget, "http": HttpTarget, "mock": MockTarget}
+TARGETS = {"gemini_enterprise": GeminiEnterpriseTarget, "http": HttpTarget, "genai": GenAITarget, "mock": MockTarget}
 
 
-def build_target(cfg: dict) -> TargetAgent:
+def build_target(cfg: dict):
+    """Conversational adapters live here; browser-driven ones (web, chat_widget) in core/web.py."""
     t = cfg.get("type", "mock")
+    if t in ("web", "chat_widget"):
+        from .web import ChatWidgetTarget, WebTarget   # needs Playwright: imported only when used
+        return (WebTarget if t == "web" else ChatWidgetTarget)(_expand_env(cfg))
     if t not in TARGETS:
-        raise ValueError(f"Unknown target type '{t}'. Options: {list(TARGETS)}")
+        raise ValueError(f"Unknown target type '{t}'. Options: {list(TARGETS) + ['web', 'chat_widget']}")
     return TARGETS[t](cfg)

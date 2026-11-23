@@ -149,6 +149,20 @@ def _status(result: Optional[dict]) -> tuple[str, str, str, str]:
     if not result:
         return "Not run", "", "", ""
     st = result.get("status")
+    steps = result.get("steps_log") or []
+    if st == "manual":
+        return "Not run", "", "", (result.get("error") or "Could not be automated: run by hand.")[:800]
+    if steps:                                     # web: say where it broke, not the whole page text
+        bad = next((s for s in steps if s.get("status") == "failed"), None)
+        final = (result.get("responses") or [{}])[-1]
+        actual = (f"Step {bad.get('step') or 'final check'}: {bad.get('action')} "
+                  f"'{bad.get('target') or bad.get('value')}' - {bad.get('detail')}" if bad else "All steps passed.")
+        actual += f"\nPage: {final.get('url', '')}" if final.get("url") else ""
+        shot = (bad or {}).get("screenshot") or next((s.get("screenshot") for s in reversed(steps) if s.get("screenshot")), "")
+        status = {"passed": "Pass", "failed": "Fail", "error": "Blocked"}.get(st, "Not run")
+        comment = (f"Automation could not perform a step: {result.get('error', '')[:300]} " if st == "error" else "")
+        comment += f"Screenshot: {shot}" if shot else ""
+        return status, actual[:1000], "Automation Engineer (agent)", comment.strip()
     actual = " / ".join((r.get("text") or "") for r in result.get("responses", []))[:1000]
     failed = "; ".join(f"{a['assertion']['type']}: {a['detail']}" for a in result.get("assertion_results", [])
                        if not a.get("passed"))

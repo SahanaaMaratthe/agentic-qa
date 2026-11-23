@@ -105,6 +105,9 @@ def main(argv=None) -> int:
     s.add_argument("--run-dir", required=True)
     s.add_argument("--from", dest="start", choices=STAGES, required=True)
     s.add_argument("--until", choices=STAGES, default="report")
+    e = sub.add_parser("execute", help="run existing test cases (02_testcases.json) against the chosen application")
+    e.add_argument("--testcases", required=True, help="02_testcases.json, a run folder, or e.g. examples/kvtu_web/testcases.json")
+    e.add_argument("--until", choices=["automate", "execute", "report"], default="report")
     x = sub.add_parser("export", help="(re)build the Excel workbook for a run or batch folder")
     x.add_argument("--run-dir", required=True, help="runs/UC-001_... or runs/batch_...")
     u = sub.add_parser("ui", help="open the web page (runs locally on this computer)")
@@ -112,9 +115,16 @@ def main(argv=None) -> int:
     d = sub.add_parser("demo-site", help="open the KVTU practice portal (a buggy web app to test against)")
     d.add_argument("--port", type=int, default=8600)
     d.add_argument("--no-browser", action="store_true", help="do not open a browser window")
-    for p in (r, s, pv, u, x):
+    for p in (r, s, pv, u, x, e):
         p.add_argument("--settings", default="config/settings.yaml")
-    for p in (r, s):
+    from .core.apps import APP_TYPES
+    for p in (r, s, e):
+        p.add_argument("--app", choices=list(APP_TYPES), help="application under test for this run "
+                       "(default: `app:` in settings.yaml): " + "; ".join(f"{k} = {v}" for k, v in APP_TYPES.items()))
+        g = p.add_mutually_exclusive_group()
+        g.add_argument("--headed", dest="headed", action="store_const", const=True, help="web: show the browser window")
+        g.add_argument("--headless", dest="headed", action="store_const", const=False, help="web: hide the browser")
+    for p in (r, s, e):
         p.add_argument("--fail-on-bugs", action="store_true", help="exit 1 if any product bug is found (CI)")
     a = ap.parse_args(argv)
 
@@ -132,8 +142,18 @@ def main(argv=None) -> int:
         return 0 if service.export_excel(Path(a.run_dir), a.settings) else 2
 
     summaries = []
-    if a.cmd == "resume":
-        summaries.append(Pipeline(a.settings).run(Path(a.run_dir), start=a.start, stop=a.until))
+    app, headed = getattr(a, "app", None), getattr(a, "headed", None)
+    if a.cmd == "execute":
+        try:
+            summaries.append(service.run_testcases(a.testcases, a.settings, app, headed, a.until))
+        except (service.IngestError, RuntimeError, ValueError) as err:
+            print(f"\nERROR: {err}")
+            return 2
+    elif a.cmd == "resume":
+        meta = Path(a.run_dir) / "00_run.json"
+        if not app and meta.exists():
+            app = json.loads(meta.read_text(encoding="utf-8")).get("app")
+        summaries.append(Pipeline(a.settings, app=app, headed=headed).run(Path(a.run_dir), start=a.start, stop=a.until))
     elif a.cmd == "run" and (legacy := _legacy_files(a.usecase)) is not None:
         ref = ""
         if a.reference:
@@ -141,7 +161,7 @@ def main(argv=None) -> int:
             ref = service.render_document_text(pv0.result)
         for f in legacy:
             summaries.append(service.run_legacy(str(f), a.settings, a.until, ref,
-                                                interactive_review if a.review else None))
+                                                interactive_review if a.review else None, app=app, headed=headed))
     else:
         try:
             pv_ = service.preview(a.usecase, a.settings, a.profile, a.reference)
@@ -157,7 +177,8 @@ def main(argv=None) -> int:
             return 2
         sel = [x.strip() for x in a.scenarios.split(",")] if a.scenarios else None
         try:
-            out = service.run_batch(pv_, a.settings, sel, a.until, a.force, interactive_review if a.review else None)
+            out = service.run_batch(pv_, a.settings, sel, a.until, a.force, interactive_review if a.review else None,
+                                    app=app, headed=headed)
         except service.IngestError as e:
             print(f"\nERROR: {e}")
             return 2

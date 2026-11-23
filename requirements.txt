@@ -10,6 +10,8 @@ python-docx>=1.1
 # web page
 streamlit>=1.50
 pandas>=2.0
+# browser testing (web apps, chat widgets). After installing, run once:  playwright install chromium
+playwright>=1.45
 # tests
 pytest>=8
 reportlab>=4.0

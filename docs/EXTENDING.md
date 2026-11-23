@@ -124,6 +124,17 @@ bug trackers: `core/tracker.py`.
 * Prompt: `qa_agents/prompts/troubleshooter.md`. Model: `llm_overrides: {troubleshooter: {...}}`.
 * Swap the search for embeddings / a vector database by replacing `RequirementIndex.search` (same `Hit` output).
 
+### Application types (`qa_agents/core/apps.py`, `core/target.py`, `core/web.py`)
+- `apps.resolve_app()` turns `app:` + `apps.<name>:` into the adapter config; `SYSTEM_KIND` tells the Test
+  Designer what it is testing. Add a new application type by adding it to `APP_TYPES`, `SYSTEM_KIND` and
+  either `TARGETS` (conversational: implement `converse(persona, target_agent, turns) -> [TargetResponse]`)
+  or a browser adapter in `core/web.py` (implement `run_test(test, evidence_dir)` like `WebTarget`).
+- Browser steps: `agents/web_steps.py` reads plain steps with regex rules; add a `@rule(...)` for a new
+  phrasing. Steps no rule can read go to the AI (`prompts/automation_engineer_web.md`), else become manual.
+- Finding elements: `WebTarget._find` = css= -> page map -> labels/roles/placeholders -> AI pick.
+- Gen AI checks: `core/evaluator.py` (`GENAI_CRITERIA` for the AI judge, `HEURISTICS` offline,
+  `PII_PATTERNS`). `AutomationEngineer.add_quality_checks` decides which tests get which check.
+
 ## 6. Tests
 
 ```

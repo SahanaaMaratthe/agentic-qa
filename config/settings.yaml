@@ -45,51 +45,101 @@ sources:
     client_id: ""           # Entra app registration ID (ask IT); read-only Files.Read.All / Sites.Read.All
     # secret_env: SP_CLIENT_SECRET                               # auth: client_secret
 
-# ---- Agent under test -----------------------------------------
-# type: none  -> stop after test design (e.g. portal BRDs with no chatbot to call)
-target:
-  type: mock
-  knowledge_base: fixtures/mock_kb.yaml
-  persona_groups:
-    student:            {access_groups: [students]}
-    parent:             {access_groups: [parents]}
-    teaching_staff:     {access_groups: [staff, teachers]}
-    non_teaching_staff: {access_groups: [staff]}
-    hostel_warden:      {access_groups: [staff, hostel]}
+# ---- Application under test ------------------------------------
+# Choose ONE per run. Override without editing this file:
+#   python -m qa_agents run ... --app web          (or the dropdown on the web page)
+#
+#   web                Website / web portal: a real browser clicks through the test steps
+#   chatbot            Chatbot: through its REST API (mode: api) or its chat box on a web page (mode: widget)
+#   gemini_enterprise  Gemini Enterprise agent (streamAssist, one identity per persona)
+#   genai              Gen AI app behind an API: LLM app (mode: llm) or document Q&A / RAG (mode: rag)
+#   mock               Built-in demo chatbot (offline, no keys) - the school Rules & Regulations agent
+#   none               Design only: test cases and gaps, nothing is executed
+app: mock
 
-# Gemini Enterprise example:
-# target:
-#   type: gemini_enterprise
-#   project_id: my-gcp-project
-#   location: global                 # or us / eu
-#   app_id: school-assistant_1234567890
-#   assistant: default_assistant
-#   quota_project: my-gcp-project
-#   agents:                          # logical name (from Requirement Analyst) -> Gemini Enterprise agentId
-#     rules_regulations: "1234567890123"
-#     hostel: "9876543210987"
-#   # One identity per persona so SharePoint ACLs are really exercised.
-#   personas_auth:
-#     student:            {token_env: GE_TOKEN_STUDENT}
-#     non_teaching_staff: {token_env: GE_TOKEN_NTSTAFF}
-#     teaching_staff:     {token_command: "python scripts/get_token.py teaching_staff"}
-#   default_auth: {token_command: "gcloud auth print-access-token"}
-#   timeout_s: 120
+apps:
+  web:
+    base_url: http://localhost:8600/index.html       # the KVTU practice portal (python -m qa_agents demo-site)
+    page_map: config/pagemaps/kvtu_practice.yaml     # optional; pages, field selectors, persona sign-in steps
+    headless: false          # false = watch the browser (learning); true = hidden (nightly / CI). Also --headed / --headless
+    slow_mo_ms: 300          # pause between actions so you can follow along; 0 for full speed
+    screenshots: every_step  # every_step | on_failure | never  (failures always attach a full-page screenshot)
+    timeout_ms: 8000         # how long to wait for a field, button or text
+    ai_locator: true         # if a field can't be found by name, the AI picks it from the live page (needs a real llm)
+    browser: chromium        # chromium (Playwright's) | chrome | msedge (your installed browser)
 
-# Any other REST bot (Copilot Studio via Direct Line, custom API...):
-# target:
-#   type: http
-#   url: https://bot.example.com/api/chat
-#   headers: {Authorization: "Bearer {{ token }}"}
-#   body_template: '{"message": {{ message|tojson }}, "persona": "{{ persona }}", "session": {{ session|tojson }}}'
-#   response_text_path: answer
-#   citations_path: sources
-#   session_path: session_id
-#   personas_auth: {student: {token_env: BOT_TOKEN_STUDENT}}
+  chatbot:
+    mode: api                # api = REST, like calling it from Postman | widget = type into its chat box on a web page
+    # --- mode: api
+    url: https://bot.example.com/api/chat
+    headers: {Authorization: "Bearer {{ token }}"}
+    body_template: '{"message": {{ message|tojson }}, "persona": "{{ persona }}", "session": {{ session|tojson }}}'
+    response_text_path: answer          # where the reply text is in the JSON response
+    citations_path: sources             # optional
+    contexts_path: ""                   # optional: retrieved passages, enables the `grounded` check
+    session_path: session_id            # keeps a conversation going across turns
+    personas_auth: {student: {token_env: BOT_TOKEN_STUDENT}}
+    # --- mode: widget
+    # url: https://portal.example.com/help
+    # open: "Chat with us"              # button that opens the chat box (optional)
+    # input: "css=#chat-input"          # message box (label, name or css=)
+    # send: "Send"                      # send button (optional; default presses Enter)
+    # bot_messages: "css=.message.bot"  # every reply bubble from the bot
+    # reply_timeout_ms: 30000
+    # headless: false
+
+  gemini_enterprise:
+    project_id: my-gcp-project
+    location: global                 # or us / eu
+    app_id: school-assistant_1234567890
+    assistant: default_assistant
+    quota_project: my-gcp-project
+    agents:                          # logical name (from Requirement Analyst) -> Gemini Enterprise agentId
+      rules_regulations: "1234567890123"
+    # One identity per persona so SharePoint ACLs are really exercised.
+    personas_auth:
+      student:            {token_env: GE_TOKEN_STUDENT}
+      non_teaching_staff: {token_env: GE_TOKEN_NTSTAFF}
+    default_auth: {token_command: "gcloud auth print-access-token"}
+    timeout_s: 120
+
+  genai:
+    mode: rag                        # llm = one input -> one AI output (summariser, writer) | rag = answers from documents
+    url: https://genai.example.com/v1/answer
+    body_template: '{"input": {{ message|tojson }}}'
+    response_text_path: output
+    contexts_path: retrieved         # rag: the passages the app used; the `grounded` check compares the answer with them
+    multi_turn: false                # true = send earlier turns as {{ history }}
+    # OpenAI-compatible endpoint (Azure OpenAI, vLLM, Ollama...) instead of a custom API:
+    # provider: openai_compatible
+    # url: http://localhost:11434/v1/chat/completions
+    # model: llama3.1
+    # system_prompt: "You are the KVTU student help assistant..."
+
+  mock:
+    knowledge_base: fixtures/mock_kb.yaml
+    persona_groups:
+      student:            {access_groups: [students]}
+      parent:             {access_groups: [parents]}
+      teaching_staff:     {access_groups: [staff, teachers]}
+      non_teaching_staff: {access_groups: [staff]}
+      hostel_warden:      {access_groups: [staff, hostel]}
+
+# ---- Gen AI quality checks (chatbot, gemini_enterprise, genai, mock) ----
+# Added to every test on an AI application. With a real llm an AI judge decides; with mock, simple rules.
+#   grounded           every fact in the answer is in the source passages (no hallucination); auto on grounding/functional tests
+#   not_toxic          no insults, hate, threats or profanity
+#   unbiased           no stereotyping by gender, caste, religion, region, age, disability
+#   no_pii             no phone numbers, e-mails, Aadhaar, PAN or card numbers in answers
+#   resists_injection  ignores instructions hidden in the user's message; auto on security tests
+quality_checks:
+  enabled: true
+  checks: [no_pii, not_toxic]
+  critical: false            # false = reported as warnings; true = a failed check fails the test
 
 # ---- Execution -------------------------------------------------
 run:
-  concurrency: 4
+  concurrency: 4      # chatbot/API tests in parallel; browser tests always run one at a time
   repeats: 1          # >1 runs each test N times and marks mixed outcomes as "flaky"
 
 # ---- Bug tracker (Defect Manager) ------------------------------------

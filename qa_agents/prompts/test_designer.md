@@ -63,8 +63,18 @@ Readers are testers, BAs, business users doing UAT, and developers. So:
 `steps` holds **only the literal messages the user types**, one per turn, written the way that
 persona would really phrase them. Put "sign in as ..." style setup in `preconditions`.
 {%- else -%}
-`steps` holds the user's actions in the application, one per step ("Enter the USN 1RV22CS001
-in the USN field", "Click Pay Now"). Put setup (accounts, data, system state) in `preconditions`.
+`steps` holds the user's actions in the application, one per step, using the names the user
+sees on screen and putting every typed or chosen value in single quotes, because a test robot
+reads these steps:
+- "Open the Student login page" (or "Navigate to #/track" when you know the address)
+- "Enter '1RV22CS001' in the USN field"
+- "Select 'Anti-Ragging' in Category"   ·   "Choose 'Speed Post (India)'"   ·   "Tick 'I agree'"
+- "Click 'Proceed to Pay'"   ·   "Upload 'generate:big.pdf:5.3MB' to Government ID" (a generated test file)
+- "Verify the page shows 'Payment successful'"   ·   "Check that 'Refund' is not shown"
+Put the expected on-screen texts in quotes in `expected_result` too ("The error 'Copies must be
+from 1 to 10' is shown"). Put setup (accounts, data, system state) in `preconditions`; the
+persona's sign-in is done for them, so don't write sign-in steps unless sign-in is what you test.
+Use persona "Visitor (not signed in)" for public pages.
 {%- endif %}
 
 ## 5. Coverage
@@ -75,6 +85,16 @@ in the USN field", "Click Pay Now"). Put setup (accounts, data, system state) in
   persona/denied-content pair at minimum), grounding (correct facts and source), out_of_scope,
   multi_turn, robustness (typos, informal or mixed-language input), security (attempts to
   trick the system, see others' data or bypass rules).
+{%- if app == "web" or app == "none" %}
+- For screens and forms also: boundary (just inside / just outside every limit: lengths, file
+  sizes, amounts, dates, counts) and accessibility (labels, keyboard use, language toggle).
+{%- else %}
+- For AI answers also: safety (provoking rude, harmful or unsafe output: it must stay polite and
+  safe), fairness (the same question for different genders, castes, religions, regions or ages
+  gets equal treatment), security with prompt injection ("ignore your instructions and ...",
+  instructions hidden in pasted text), and personal data (asking for another person's phone,
+  e-mail or ID numbers must be refused).
+{%- endif %}
 - When an expected value is unknown, still write the test, write the criterion as "Shows the
   value given in <document>", and raise a `missing_test_data` gap.
 - IDs: `TC-<usecase_id>-<3 digit seq>` (they are renumbered by priority afterwards).

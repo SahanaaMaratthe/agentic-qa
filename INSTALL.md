@@ -60,6 +60,7 @@ Then install only the extras you need:
 
 | You want to | Install |
 |---|---|
+| Test websites / chat widgets (included in requirements.txt) | then once: `playwright install chromium` |
 | Use Gemini as the AI model | `pip install google-genai` |
 | Use Claude / OpenAI-compatible models | `pip install anthropic` / `pip install openai` |
 | Read Google Drive links | `pip install google-auth google-auth-oauthlib` |
@@ -85,6 +86,10 @@ python -m qa_agents ui
 
 # d) the KVTU practice portal (a buggy web app to test): opens http://localhost:8600
 python -m qa_agents demo-site
+
+# e) web testing: with the portal running (d) in one terminal, in a SECOND terminal:
+python -m qa_agents execute --testcases examples/kvtu_web/testcases.json --app web --headed
+#    a browser opens and runs 14 test cases: 5 pass, 8 catch planted bugs, 1 is left for a human
 ```
 
 Results are written to the `runs/` folder.
@@ -96,8 +101,10 @@ All in `config/settings.yaml`; nothing else changes.
 | Step | Settings block | Guide |
 |---|---|---|
 | Real AI model | `llm:` | README "Switching to real systems" |
-| Gemini Enterprise agent under test | `target: type: gemini_enterprise` | README "Persona testing" |
-| Portal-style BRDs (no chatbot) | `target: type: none` | stops after test design |
+| Which application you test | `app:` (web, chatbot, gemini_enterprise, genai, mock, none) and its block under `apps:` | README "Application types" |
+| A website | `apps: web:` `base_url`, `page_map` | copy `config/pagemaps/kvtu_practice.yaml` |
+| Gemini Enterprise agent under test | `apps: gemini_enterprise:` | README "Persona testing" |
+| Design only (no execution) | `app: none` | stops after test design |
 | Google Drive | `sources: gdrive:` | `gcloud auth application-default login --scopes=https://www.googleapis.com/auth/drive.readonly,https://www.googleapis.com/auth/cloud-platform` |
 | SharePoint / OneDrive | `sources: sharepoint:` (`tenant_id`, `client_id`) | first run shows a sign-in code for https://microsoft.com/devicelogin |
 | Jira | `tracker:` | keep `file_bugs: false` until you trust the triage |
@@ -108,9 +115,18 @@ PowerShell `$env:GEMINI_API_KEY="..."` · Mac `export GEMINI_API_KEY="..."`.
 
 ## 7. Updating to a new version
 
-Unzip the new version into a new folder, copy across your `config/settings.yaml`,
-`config/profiles/<client>.yaml` files and anything under `inputs/` and `approved/`, then
-repeat steps 4–5.
+Updates come as a patch file (`.patch`). In the project folder, with your work committed:
+
+```bash
+git apply --check update.patch     # dry run: no output = it fits
+git apply update.patch
+pip install -r requirements.txt    # in case new packages were added
+python -m pytest -q
+git add . ; git commit -m "Apply update" ; git push
+```
+
+If `--check` reports a file you changed yourself (often `config/settings.yaml`), save your
+copy, run `git checkout -- <that file>`, apply the patch, and copy your values back.
 
 ## 8. Troubleshooting
 
@@ -126,5 +142,9 @@ repeat steps 4–5.
 | Preview says confidence LOW | The documents' grouping was unclear; see `runs/batch_*/00_ingest/report.md` and use a client profile |
 | `Google Drive: access denied` | Re-run the `gcloud ... login` command with the Drive scope, or check the file is shared with you |
 | `SharePoint: access denied` | Ask IT to grant admin consent for the app's Files.Read.All / Sites.Read.All |
+| `Browser testing needs Playwright` / `Executable doesn't exist` | `pip install playwright` then `playwright install chromium`; or set `browser: chrome` (or `msedge`) under `apps: web:` to use your installed browser |
+| Web tests all `error` with `net::ERR_CONNECTION_REFUSED` | The website isn't running: for the practice portal start `python -m qa_agents demo-site` in another terminal |
+| A web test is `error`: `could not find 'X'` | The step names a field or button differently from the screen. Fix the step's wording, or add `X: "css=..."` under `elements:` in the page map (see `learned_page_map.yaml` in the run folder) |
+| A web test is `manual` | A step was too vague for the robot ("Observe the fee"). Run it by hand, or reword it ("Verify the page shows '₹150.00'") |
 
 More help: `README.md` (features and settings), `docs/EXTENDING.md` (for developers).

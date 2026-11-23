@@ -1,0 +1,380 @@
+{
+ "usecase_id": "KVTU-WEB",
+ "test_cases": [
+  {
+   "id": "TC-KVTU-WEB-001",
+   "usecase_id": "KVTU-WEB",
+   "title": "Visitor sees the four student services on the home page",
+   "purpose": "Checks that the portal's front page offers every service, so students can find what they need.",
+   "perspective": "End user",
+   "category": "functional",
+   "priority": "Medium",
+   "priority_reason": "A missing tile would send students to the office instead of the portal.",
+   "business_impact": "More walk-in queries for the exam section.",
+   "persona": "Visitor (not signed in)",
+   "preconditions": [
+    "Practice portal running"
+   ],
+   "steps": [
+    "Open the Home page"
+   ],
+   "expected_result": "The page shows 'Academic documents', 'Grievance Redressal', 'Track application' and 'Verify certificate'.",
+   "acceptance_criteria": [
+    "All four service names are shown"
+   ],
+   "traceability": [
+    "BO-01",
+    "BO-04"
+   ]
+  },
+  {
+   "id": "TC-KVTU-WEB-002",
+   "usecase_id": "KVTU-WEB",
+   "title": "Visitor sees the correct International Courier fee",
+   "purpose": "Checks the published delivery fee matches the approved fee matrix.",
+   "perspective": "Business",
+   "category": "functional",
+   "priority": "High",
+   "priority_reason": "A wrong published fee misleads every overseas applicant.",
+   "business_impact": "Revenue loss of ₹250 per overseas order and complaints.",
+   "persona": "Visitor (not signed in)",
+   "preconditions": [],
+   "steps": [
+    "Open the Fee schedule page"
+   ],
+   "expected_result": "The fee schedule shows 'International Courier' with '₹2,500.00'.",
+   "acceptance_criteria": [
+    "Courier fee is ₹2,500"
+   ],
+   "traceability": [
+    "FR-EDD-04"
+   ]
+  },
+  {
+   "id": "TC-KVTU-WEB-003",
+   "usecase_id": "KVTU-WEB",
+   "title": "Visitor cannot get a One-Time Password (OTP) with a wrong date of birth",
+   "purpose": "Checks the sign-in confirms the student's identity before sending a One-Time Password (OTP).",
+   "perspective": "Both",
+   "category": "security",
+   "priority": "Critical",
+   "priority_reason": "Anyone knowing a University Seat Number (USN) could open another student's account.",
+   "business_impact": "Data leak and fraudulent document requests.",
+   "persona": "Visitor (not signed in)",
+   "preconditions": [
+    "Student 1KV21CS001 exists with date of birth 2003-04-12"
+   ],
+   "steps": [
+    "Open the Student login page",
+    "Enter '1KV21CS001' in the USN field",
+    "Enter '1999-01-01' in the Date of birth field",
+    "Enter 'test@example.edu' in the E-mail field",
+    "Enter '9845012345' in the Mobile number field",
+    "Click 'Send OTP'"
+   ],
+   "expected_result": "The error 'The details you entered do not match our records.' is shown.",
+   "acceptance_criteria": [
+    "No One-Time Password (OTP) page is opened"
+   ],
+   "traceability": [
+    "FR-EDD-01",
+    "BRD Step 1.1"
+   ]
+  },
+  {
+   "id": "TC-KVTU-WEB-004",
+   "usecase_id": "KVTU-WEB",
+   "title": "Visitor sees an error for an 11-character University Seat Number (USN)",
+   "purpose": "Checks the University Seat Number (USN) format rule of exactly 10 characters.",
+   "perspective": "End user",
+   "category": "boundary",
+   "priority": "High",
+   "priority_reason": "Wrong identifiers could reach the wrong student record.",
+   "business_impact": "Wrong records fetched; data quality issues.",
+   "persona": "Visitor (not signed in)",
+   "preconditions": [],
+   "steps": [
+    "Open the Student login page",
+    "Enter '1KV21CS0011' in the USN field",
+    "Enter '2003-04-12' in the Date of birth field",
+    "Enter 'test@example.edu' in the E-mail field",
+    "Enter '9845012345' in the Mobile number field",
+    "Click 'Send OTP'"
+   ],
+   "expected_result": "The error 'Invalid USN format' is shown.",
+   "acceptance_criteria": [
+    "An 11-character value is rejected"
+   ],
+   "traceability": [
+    "FR-EDD-01"
+   ]
+  },
+  {
+   "id": "TC-KVTU-WEB-005",
+   "usecase_id": "KVTU-WEB",
+   "title": "Student cannot request more than 10 copies",
+   "purpose": "Checks the copy limit of 1 to 10 in the document cart.",
+   "perspective": "End user",
+   "category": "boundary",
+   "priority": "Medium",
+   "priority_reason": "Bulk copies bypass the per-order limit set by the University.",
+   "business_impact": "Misuse of certified copies.",
+   "persona": "student",
+   "preconditions": [
+    "Signed in as student 1KV21CS001"
+   ],
+   "steps": [
+    "Open the New document request page",
+    "Enter '11' in the Copies field",
+    "Click 'Add to request'"
+   ],
+   "expected_result": "The error 'Copies must be a whole number from 1 to 10.' is shown.",
+   "acceptance_criteria": [
+    "11 copies are not added"
+   ],
+   "traceability": [
+    "FR-EDD-02"
+   ]
+  },
+  {
+   "id": "TC-KVTU-WEB-006",
+   "usecase_id": "KVTU-WEB",
+   "title": "Student cannot open the clerk's scrutiny workbench",
+   "purpose": "Checks that staff screens are closed to students, even by typing the address.",
+   "perspective": "Both",
+   "category": "access_control",
+   "priority": "Critical",
+   "priority_reason": "Students could see other students' documents.",
+   "business_impact": "Data protection breach.",
+   "persona": "student",
+   "preconditions": [
+    "Signed in as student 1KV21CS001"
+   ],
+   "steps": [
+    "Navigate to #/staff/clerk"
+   ],
+   "expected_result": "'Access denied' is shown and 'Scrutiny workbench' is not shown.",
+   "acceptance_criteria": [
+    "The clerk workbench is not displayed"
+   ],
+   "traceability": [
+    "NFR-03"
+   ]
+  },
+  {
+   "id": "TC-KVTU-WEB-007",
+   "usecase_id": "KVTU-WEB",
+   "title": "Student cannot lodge a grievance with a future incident date",
+   "purpose": "Checks the incident date cannot be after today.",
+   "perspective": "End user",
+   "category": "negative",
+   "priority": "Medium",
+   "priority_reason": "Future dates corrupt Service Level Agreement (SLA) reports.",
+   "business_impact": "Wrong compliance figures.",
+   "persona": "student",
+   "preconditions": [
+    "Signed in as student 1KV21CS001"
+   ],
+   "steps": [
+    "Open the Lodge grievance page",
+    "Select 'College Infra' in Category",
+    "Select 'Library' in Sub-category",
+    "Enter '2099-01-01' in the Incident date field",
+    "Enter 'The library has been closed on weekdays for three weeks.' in the Describe your grievance field",
+    "Click 'Submit grievance'"
+   ],
+   "expected_result": "The error 'The incident date cannot be in the future.' is shown.",
+   "acceptance_criteria": [
+    "No ticket is created"
+   ],
+   "traceability": [
+    "FR-GRV-01"
+   ]
+  },
+  {
+   "id": "TC-KVTU-WEB-008",
+   "usecase_id": "KVTU-WEB",
+   "title": "Student sees the grievance form labels in Kannada",
+   "purpose": "Checks every label switches when the student chooses Kannada.",
+   "perspective": "End user",
+   "category": "accessibility",
+   "priority": "Low",
+   "priority_reason": "Some students read Kannada more easily; mixed labels confuse them.",
+   "business_impact": "Accessibility compliance (GIGW) gap.",
+   "persona": "student",
+   "preconditions": [
+    "Signed in as student 1KV21CS001"
+   ],
+   "steps": [
+    "Open the Lodge grievance page",
+    "Click 'ಕನ್ನಡ'"
+   ],
+   "expected_result": "The labels show 'ಘಟನೆಯ ದಿನಾಂಕ' and 'Incident date' is not shown.",
+   "acceptance_criteria": [
+    "All labels in Kannada"
+   ],
+   "traceability": [
+    "FR-GRV-05",
+    "NFR-04"
+   ]
+  },
+  {
+   "id": "TC-KVTU-WEB-009",
+   "usecase_id": "KVTU-WEB",
+   "title": "Staff member must still enter an OTP after ticking Remember this device",
+   "purpose": "Checks staff two-factor sign-in cannot be skipped.",
+   "perspective": "Business",
+   "category": "security",
+   "priority": "Critical",
+   "priority_reason": "A stolen staff password alone would open the staff desks.",
+   "business_impact": "Unauthorised approvals and data access.",
+   "persona": "Visitor (not signed in)",
+   "preconditions": [
+    "Staff account clerk / Demo@123"
+   ],
+   "steps": [
+    "Open the Staff login page",
+    "Enter 'clerk' in the Username field",
+    "Enter 'Demo@123' in the Password field",
+    "Tick 'Remember this device'",
+    "Click 'Continue'"
+   ],
+   "expected_result": "The page asks for the 'One-Time Password (OTP)'.",
+   "acceptance_criteria": [
+    "Two-factor step is shown"
+   ],
+   "traceability": [
+    "NFR-03"
+   ]
+  },
+  {
+   "id": "TC-KVTU-WEB-010",
+   "usecase_id": "KVTU-WEB",
+   "title": "Student's 5.3 MB identity file is rejected",
+   "purpose": "Checks the 5 MB upload limit.",
+   "perspective": "End user",
+   "category": "boundary",
+   "priority": "Medium",
+   "priority_reason": "Large files slow scrutiny and storage.",
+   "business_impact": "Storage cost and slow processing.",
+   "persona": "student",
+   "preconditions": [
+    "Signed in as student 1KV21CS001"
+   ],
+   "steps": [
+    "Open the New document request page",
+    "Upload 'generate:aadhaar_big.pdf:5.3MB' to Government ID (Aadhaar / Passport)"
+   ],
+   "expected_result": "The message 'file is larger than 5 MB' is shown.",
+   "acceptance_criteria": [
+    "The file is not listed as uploaded"
+   ],
+   "traceability": [
+    "FR-EDD-03"
+   ]
+  },
+  {
+   "id": "TC-KVTU-WEB-011",
+   "usecase_id": "KVTU-WEB",
+   "title": "Visitor sees NOT VERIFIED for an unknown certificate code",
+   "purpose": "Checks the public verification page rejects codes that match nothing.",
+   "perspective": "Business",
+   "category": "negative",
+   "priority": "High",
+   "priority_reason": "Fake certificates could look genuine to employers.",
+   "business_impact": "Reputation damage and fraud.",
+   "persona": "Visitor (not signed in)",
+   "preconditions": [],
+   "steps": [
+    "Open the Verify certificate page",
+    "Enter 'abcdef0123456789' in the Verification code field",
+    "Click 'Verify'"
+   ],
+   "expected_result": "'NOT VERIFIED' is shown and 'AUTHENTIC' is not shown.",
+   "acceptance_criteria": [
+    "Unknown code is rejected"
+   ],
+   "traceability": [
+    "FR-EDD-07"
+   ]
+  },
+  {
+   "id": "TC-KVTU-WEB-012",
+   "usecase_id": "KVTU-WEB",
+   "title": "Student sees their dashboard after signing in",
+   "purpose": "Checks a student with correct details can sign in end to end.",
+   "perspective": "End user",
+   "category": "functional",
+   "priority": "Critical",
+   "priority_reason": "If sign-in fails, no student can use any service.",
+   "business_impact": "Complete service outage for students.",
+   "persona": "student",
+   "preconditions": [
+    "Student 1KV21CS001 exists"
+   ],
+   "steps": [
+    "Open the Student dashboard page"
+   ],
+   "expected_result": "'My dashboard' and 'Ananya Rao' are shown.",
+   "acceptance_criteria": [
+    "Dashboard opens"
+   ],
+   "traceability": [
+    "FR-EDD-01"
+   ]
+  },
+  {
+   "id": "TC-KVTU-WEB-013",
+   "usecase_id": "KVTU-WEB",
+   "title": "Student cannot see an unrelated application when tracking with their own USN",
+   "purpose": "Checks tracking needs the application ID and its own USN together.",
+   "perspective": "End user",
+   "category": "access_control",
+   "priority": "High",
+   "priority_reason": "Anyone could see another student's application status.",
+   "business_impact": "Privacy complaint.",
+   "persona": "Visitor (not signed in)",
+   "preconditions": [
+    "Sample data loaded"
+   ],
+   "steps": [
+    "Open the Track application page",
+    "Enter 'APP-2026-UNKNOWN' in the Application ID field",
+    "Enter '1KV21CS001' in the University Seat Number (USN) field",
+    "Click 'Track'"
+   ],
+   "expected_result": "'No application' is shown.",
+   "acceptance_criteria": [
+    "No status is shown"
+   ],
+   "traceability": [
+    "FR-EDD-08"
+   ]
+  },
+  {
+   "id": "TC-KVTU-WEB-014",
+   "usecase_id": "KVTU-WEB",
+   "title": "Kannada wording on the grievance form reads naturally",
+   "purpose": "Checks translation quality, which needs a native speaker.",
+   "perspective": "End user",
+   "category": "accessibility",
+   "priority": "Low",
+   "priority_reason": "Awkward translations reduce trust.",
+   "business_impact": "Minor reputation issue.",
+   "persona": "student",
+   "preconditions": [],
+   "steps": [
+    "Ask a native Kannada speaker to read the grievance form and note awkward phrases"
+   ],
+   "expected_result": "The reviewer finds no awkward or wrong phrases.",
+   "acceptance_criteria": [
+    "Native speaker sign-off"
+   ],
+   "traceability": [
+    "NFR-04"
+   ]
+  }
+ ],
+ "gaps": [],
+ "coverage_notes": "Example web suite for the KVTU practice portal: some pass, some catch planted bugs, one needs a human."
+}

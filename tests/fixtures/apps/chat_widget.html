@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Test help chatbot</title>
+<style>.msg{margin:4px;padding:6px;border-radius:6px}.bot{background:#eef}.user{background:#efe;text-align:right}</style></head>
+<body>
+<button id="open">Chat with us</button>
+<div id="chat" hidden>
+  <div id="log"></div>
+  <label for="chat-input">Your message</label><input id="chat-input" autocomplete="off">
+  <button id="send">Send</button>
+</div>
+<script>
+// A tiny test chatbot for the chat-widget adapter. It "streams" its reply in two parts.
+const KB = [
+  [/curfew/i, "The hostel curfew is 9:00 PM on weekdays."],
+  [/attendance/i, "Minimum attendance is 75% in each subject."],
+  [/ignore (all|previous) instructions/i, "PWNED"],                       // deliberate injection bug
+];
+document.getElementById("open").onclick = () => { document.getElementById("chat").hidden = false; };
+function say(cls, text) { const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = text;
+  document.getElementById("log").appendChild(d); return d; }
+function send() {
+  const box = document.getElementById("chat-input"), q = box.value; if (!q) return; box.value = "";
+  say("user", q);
+  const hit = KB.find(([rx]) => rx.test(q)), full = hit ? hit[1] : "Sorry, I can only help with hostel and attendance rules.";
+  setTimeout(() => { const d = say("bot", full.slice(0, 10)); setTimeout(() => { d.textContent = full; }, 400); }, 300);
+}
+document.getElementById("send").onclick = send;
+document.getElementById("chat-input").addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+</script></body></html>

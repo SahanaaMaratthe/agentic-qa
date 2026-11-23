@@ -1,0 +1,122 @@
+# Page map for the KVTU practice portal (python -m qa_agents demo-site).
+#
+# A page map is optional. Without one the robot finds fields by their labels and button texts,
+# like a manual tester. Add entries here when a name is ambiguous or a page has no good labels.
+# Copy this file for a client portal and change the URLs, names and login steps.
+
+base_url: http://localhost:8600/index.html
+
+# Page names a test step can use: "Open the Student login page" -> goto "Student login"
+pages:
+  Home: "#/"
+  Student login: "#/login"
+  Staff login: "#/staff/login"
+  Student dashboard: "#/student"
+  New document request: "#/apply"
+  Apply: "#/apply"
+  Lodge grievance: "#/grievance/new"
+  Grievance form: "#/grievance/new"
+  Track application: "#/track"
+  Verify certificate: "#/verify"
+  Fee schedule: "#/fees"
+  Clerk workbench: "#/staff/clerk"
+  Registrar desk: "#/staff/registrar"
+  Dispatch desk: "#/staff/dispatch"
+  Grievance inbox: "#/staff/grievances"
+  Finance: "#/staff/finance"
+  MIS dashboard: "#/mis"
+  Fee master: "#/admin/fees"
+  QA panel: "#/qa"
+
+# Field and button names -> CSS selectors (used before reading the page).
+elements:
+  USN: "#usn"
+  University Seat Number: "#usn"
+  Date of birth: "#dob"
+  DOB: "#dob"
+  OTP: "#otp"
+  Copies: "#qty"
+  Document: "#doctype"
+  Total fee: "#total"
+  Description: "#g-desc"
+  Grievance description: "#g-desc"
+  Language toggle: "#lang"
+  Sign out: "#logout"
+
+# Test data any step can use as {{ name }}
+variables:
+  student_usn: 1KV21CS001
+  student_dob: "2003-04-12"
+  staff_password: Demo@123
+
+# How each persona signs in. Test cases use "Sign in as <persona>", and the robot also signs in
+# automatically when a test's persona matches one of these (by name or alias).
+# The practice portal shows OTPs only in its QA outbox, so the robot reads the latest one (run_js).
+personas:
+  student:
+    aliases: [student, alumni, applicant, "student / alumni"]
+    steps:
+      - {action: goto, target: "Student login"}
+      - {action: fill, target: USN, value: "{{ student_usn }}"}
+      - {action: fill, target: Date of birth, value: "{{ student_dob }}"}
+      - {action: fill, target: E-mail, value: ananya.rao@example.edu}
+      - {action: fill, target: Mobile number, value: "9845012345"}
+      - {action: click, target: Send OTP}
+      - {action: run_js, value: "Store.get().otps.at(-1).code", save_as: otp}
+      - {action: fill, target: OTP, value: "{{ otp }}"}
+      - {action: click, target: Verify and sign in}
+      - {action: expect_text, value: My dashboard}
+  not_eligible_student:
+    aliases: [ineligible student, student not cleared, student with backlogs]
+    steps:
+      - {action: goto, target: "Student login"}
+      - {action: fill, target: USN, value: 1KV20EC045}
+      - {action: fill, target: Date of birth, value: "2002-09-30"}
+      - {action: fill, target: E-mail, value: rahul@example.edu}
+      - {action: fill, target: Mobile number, value: "9845098450"}
+      - {action: click, target: Send OTP}
+      - {action: run_js, value: "Store.get().otps.at(-1).code", save_as: otp}
+      - {action: fill, target: OTP, value: "{{ otp }}"}
+      - {action: click, target: Verify and sign in}
+  clerk:
+    aliases: [exam clerk, exam section clerk, clerk]
+    steps: &staff_login
+      - {action: goto, target: "Staff login"}
+      - {action: fill, target: Username, value: clerk}
+      - {action: fill, target: Password, value: "{{ staff_password }}"}
+      - {action: click, target: Continue}
+      - {action: run_js, value: "Store.get().otps.at(-1).code", save_as: otp}
+      - {action: fill, target: "css=#sotp", value: "{{ otp }}"}
+      - {action: click, target: Verify}
+  registrar:
+    aliases: ["registrar (eval)", "registrar (evaluation)", registrar]
+    steps:
+      - {action: run_js, value: "'registrar'", save_as: staff_user}
+      - &staff_go {action: goto, target: "Staff login"}
+      - &staff_user {action: fill, target: Username, value: "{{ staff_user }}"}
+      - &staff_pass {action: fill, target: Password, value: "{{ staff_password }}"}
+      - &staff_cont {action: click, target: Continue}
+      - &staff_otp_read {action: run_js, value: "Store.get().otps.at(-1).code", save_as: otp}
+      - &staff_otp {action: fill, target: "css=#sotp", value: "{{ otp }}"}
+      - &staff_verify {action: click, target: Verify}
+  dispatch:
+    aliases: [dispatch clerk, dispatch desk]
+    steps: [{action: run_js, value: "'dispatch'", save_as: staff_user}, *staff_go, *staff_user, *staff_pass, *staff_cont, *staff_otp_read, *staff_otp, *staff_verify]
+  principal:
+    aliases: [college principal, principal, nodal officer, tier-1 officer]
+    steps: [{action: run_js, value: "'principal.kv'", save_as: staff_user}, *staff_go, *staff_user, *staff_pass, *staff_cont, *staff_otp_read, *staff_otp, *staff_verify]
+  regional:
+    aliases: [regional director, regional center, tier-2 officer]
+    steps: [{action: run_js, value: "'regional'", save_as: staff_user}, *staff_go, *staff_user, *staff_pass, *staff_cont, *staff_otp_read, *staff_otp, *staff_verify]
+  ombudsperson:
+    aliases: [ombudsperson, ombudsman, tier-3 officer]
+    steps: [{action: run_js, value: "'ombuds'", save_as: staff_user}, *staff_go, *staff_user, *staff_pass, *staff_cont, *staff_otp_read, *staff_otp, *staff_verify]
+  statcell:
+    aliases: [statutory cell, anti-ragging cell, anti-ragging officer]
+    steps: [{action: run_js, value: "'statcell'", save_as: staff_user}, *staff_go, *staff_user, *staff_pass, *staff_cont, *staff_otp_read, *staff_otp, *staff_verify]
+  finance:
+    aliases: [finance officer, finance & accounts, finance auditor]
+    steps: [{action: run_js, value: "'finance'", save_as: staff_user}, *staff_go, *staff_user, *staff_pass, *staff_cont, *staff_otp_read, *staff_otp, *staff_verify]
+  admin:
+    aliases: [ict administrator, administrator, admin]
+    steps: [{action: run_js, value: "'admin'", save_as: staff_user}, *staff_go, *staff_user, *staff_pass, *staff_cont, *staff_otp_read, *staff_otp, *staff_verify]
